@@ -53,11 +53,11 @@ const Auth = () => {
               'อีเมลนี้ถูกใช้งานแล้ว' : error.message,
             variant: "destructive"
           });
-        } else {
-          toast({
-            title: "สมัครสมาชิกสำเร็จ",
-            description: "กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชี",
-          });
+} else {
+  toast({
+    title: "สมัครสมาชิกสำเร็จ",
+    description: "คุณได้เข้าสู่ระบบเรียบร้อยแล้ว",
+  });
         }
       }
     } catch (error) {
