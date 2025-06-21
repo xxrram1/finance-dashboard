@@ -1,5 +1,6 @@
+// src/context/SupabaseFinanceContext.tsx
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '../hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
@@ -10,14 +11,17 @@ export interface Transaction {
   type: 'income' | 'expense';
   category: string;
   amount: number;
-  note: string;
+  note: string | null;
+  user_id: string;
+  created_at: string;
 }
 
 export interface Budget {
-  id?: string;
+  id: string;
   category: string;
   amount: number;
-  month: string;
+  month: string; // YYYY-MM
+  user_id: string;
 }
 
 export interface RecurringItem {
@@ -28,8 +32,9 @@ export interface RecurringItem {
   amount: number;
   frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
   start_date: string;
-  last_generated?: string;
+  description?: string | null;
   is_active: boolean;
+  user_id: string;
 }
 
 interface FinanceContextType {
@@ -37,11 +42,14 @@ interface FinanceContextType {
   budgets: Budget[];
   recurringItems: RecurringItem[];
   loading: boolean;
-  addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<void>;
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'user_id' | 'created_at'>) => Promise<void>;
+  updateTransaction: (id: string, updates: Partial<Omit<Transaction, 'id' | 'user_id' | 'created_at'>>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
-  addBudget: (budget: Omit<Budget, 'id'>) => Promise<void>;
-  deleteBudget: (category: string, month: string) => Promise<void>;
-  addRecurringItem: (item: Omit<RecurringItem, 'id'>) => Promise<void>;
+  addBudget: (budget: Omit<Budget, 'id' | 'user_id'>) => Promise<void>;
+  deleteBudget: (id: string) => Promise<void>;
+  addRecurringItem: (item: Omit<RecurringItem, 'id' | 'user_id'>) => Promise<void>;
+  updateRecurringItem: (id: string, updates: Partial<Omit<RecurringItem, 'id' | 'user_id'>>) => Promise<void>;
+  toggleRecurringItem: (id: string, isActive: boolean) => Promise<void>;
   deleteRecurringItem: (id: string) => Promise<void>;
   refreshData: () => Promise<void>;
 }
@@ -63,222 +71,129 @@ export const SupabaseFinanceProvider = ({ children }: { children: ReactNode }) =
   const [recurringItems, setRecurringItems] = useState<RecurringItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const refreshData = async () => {
-    if (!user) return;
+  const refreshData = useCallback(async () => {
+    if (!user) {
+        setTransactions([]);
+        setBudgets([]);
+        setRecurringItems([]);
+        setLoading(false); // Ensure loading is false if no user
+        return;
+    }
     
     setLoading(true);
     try {
-      // Load transactions
-      const { data: transactionsData, error: transactionsError } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('date', { ascending: false });
+      const [transactionsRes, budgetsRes, recurringRes] = await Promise.all([
+          supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false }),
+          supabase.from('budgets').select('*').eq('user_id', user.id).order('month', { ascending: false }),
+          supabase.from('recurring_items').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+      ]);
 
-      if (transactionsError) throw transactionsError;
+      if (transactionsRes.error) {
+        console.error("Error fetching transactions:", transactionsRes.error); // Add detailed logging
+        throw transactionsRes.error;
+      }
+      setTransactions(transactionsRes.data || []);
+      
+      if (budgetsRes.error) {
+        console.error("Error fetching budgets:", budgetsRes.error); // Add detailed logging
+        throw budgetsRes.error;
+      }
+      setBudgets(budgetsRes.data || []);
+      
+      if (recurringRes.error) {
+        console.error("Error fetching recurring items:", recurringRes.error); // Add detailed logging
+        throw recurringRes.error;
+      }
+      setRecurringItems(recurringRes.data || []);
 
-      // Load budgets
-      const { data: budgetsData, error: budgetsError } = await supabase
-        .from('budgets')
-        .select('*')
-        .order('month', { ascending: false });
-
-      if (budgetsError) throw budgetsError;
-
-      // Load recurring items
-      const { data: recurringData, error: recurringError } = await supabase
-        .from('recurring_items')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (recurringError) throw recurringError;
-
-      setTransactions(transactionsData || []);
-      setBudgets(budgetsData || []);
-      setRecurringItems(recurringData || []);
-    } catch (error) {
-      console.error('Error loading data:', error);
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถโหลดข้อมูลได้",
-        variant: "destructive"
-      });
+    } catch (error: any) {
+      console.error("Failed to refresh financial data:", error); // General catch-all for refreshData
+      toast({ title: "เกิดข้อผิดพลาดในการโหลดข้อมูล", description: error.message, variant: "destructive" });
     } finally {
-      setLoading(false);
+      setLoading(false); // Ensure loading is set to false even if there's an error
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     if (user) {
       refreshData();
     } else {
+      // If user logs out, clear data and ensure loading is false
       setTransactions([]);
       setBudgets([]);
       setRecurringItems([]);
       setLoading(false);
     }
-  }, [user]);
+  }, [user, refreshData]);
 
-  const addTransaction = async (transaction: Omit<Transaction, 'id'>) => {
-    if (!user) return;
-
-    const { error } = await supabase
-      .from('transactions')
-      .insert([{
-        ...transaction,
-        user_id: user.id
-      }]);
-
-    if (error) {
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถเพิ่มรายการได้",
-        variant: "destructive"
-      });
-      return;
-    }
-
+  const addTransaction = async (data: Omit<Transaction, 'id'|'user_id'|'created_at'>) => {
+    if (!user) { console.error("No user logged in to add transaction."); return; }
+    const { error } = await supabase.from('transactions').insert([{ ...data, user_id: user.id }]);
+    if (error) { console.error("Error adding transaction:", error); throw error; }
     await refreshData();
-    toast({
-      title: "สำเร็จ",
-      description: "เพิ่มรายการเรียบร้อยแล้ว",
-    });
+  };
+  
+  const updateTransaction = async (id: string, updates: Partial<Omit<Transaction, 'id' | 'user_id'|'created_at'>>) => {
+    if (!user) { console.error("No user logged in to update transaction."); return; }
+    const { error } = await supabase.from('transactions').update(updates).eq('id', id).eq('user_id', user.id); // Ensure user_id matches
+    if (error) { console.error("Error updating transaction:", error); throw error; }
+    await refreshData();
   };
 
   const deleteTransaction = async (id: string) => {
-    const { error } = await supabase
-      .from('transactions')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถลบรายการได้",
-        variant: "destructive"
-      });
-      return;
-    }
-
+    if (!user) { console.error("No user logged in to delete transaction."); return; }
+    const { error } = await supabase.from('transactions').delete().eq('id', id).eq('user_id', user.id); // Ensure user_id matches
+    if (error) { console.error("Error deleting transaction:", error); throw error; }
     await refreshData();
-    toast({
-      title: "สำเร็จ",
-      description: "ลบรายการเรียบร้อยแล้ว",
-    });
   };
 
-  const addBudget = async (budget: Omit<Budget, 'id'>) => {
-    if (!user) return;
-
-    const { error } = await supabase
-      .from('budgets')
-      .upsert([{
-        ...budget,
-        user_id: user.id
-      }]);
-
-    if (error) {
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถตั้งงบประมาณได้",
-        variant: "destructive"
-      });
-      return;
-    }
-
+  const addBudget = async (budget: Omit<Budget, 'id' | 'user_id'>) => {
+    if (!user) { console.error("No user logged in to add budget."); return; }
+    const { error } = await supabase.from('budgets').upsert({ ...budget, user_id: user.id }, { onConflict: 'user_id,category,month' });
+    if (error) { console.error("Error adding budget:", error); throw error; }
     await refreshData();
-    toast({
-      title: "สำเร็จ",
-      description: "ตั้งงบประมาณเรียบร้อยแล้ว",
-    });
   };
 
-  const deleteBudget = async (category: string, month: string) => {
-    if (!user) return;
-
-    const { error } = await supabase
-      .from('budgets')
-      .delete()
-      .eq('category', category)
-      .eq('month', month)
-      .eq('user_id', user.id);
-
-    if (error) {
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถลบงบประมาณได้",
-        variant: "destructive"
-      });
-      return;
-    }
-
+  const deleteBudget = async (id: string) => {
+    if (!user) { console.error("No user logged in to delete budget."); return; }
+    const { error } = await supabase.from('budgets').delete().eq('id', id).eq('user_id', user.id); // Ensure user_id matches
+    if (error) { console.error("Error deleting budget:", error); throw error; }
     await refreshData();
-    toast({
-      title: "สำเร็จ",
-      description: "ลบงบประมาณเรียบร้อยแล้ว",
-    });
   };
 
-  const addRecurringItem = async (item: Omit<RecurringItem, 'id'>) => {
-    if (!user) return;
-
-    const { error } = await supabase
-      .from('recurring_items')
-      .insert([{
-        ...item,
-        user_id: user.id
-      }]);
-
-    if (error) {
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถเพิ่มรายการซ้ำได้",
-        variant: "destructive"
-      });
-      return;
-    }
-
+  const addRecurringItem = async (data: Omit<RecurringItem, 'id'|'user_id'>) => {
+    if (!user) { console.error("No user logged in to add recurring item."); return; }
+    const { error } = await supabase.from('recurring_items').insert([{ ...data, user_id: user.id }]);
+    if (error) { console.error("Error adding recurring item:", error); throw error; }
     await refreshData();
-    toast({
-      title: "สำเร็จ",
-      description: "เพิ่มรายการซ้ำเรียบร้อยแล้ว",
-    });
+  };
+  
+  const updateRecurringItem = async (id: string, updates: Partial<Omit<RecurringItem, 'id'|'user_id'>>) => {
+    if (!user) { console.error("No user logged in to update recurring item."); return; }
+    const { error } = await supabase.from('recurring_items').update(updates).eq('id', id).eq('user_id', user.id); // Ensure user_id matches
+    if (error) { console.error("Error updating recurring item:", error); throw error; }
+    await refreshData();
   };
 
+  const toggleRecurringItem = async (id: string, is_active: boolean) => {
+    if (!user) { console.error("No user logged in to toggle recurring item."); return; }
+    const { error } = await supabase.from('recurring_items').update({ is_active }).eq('id', id).eq('user_id', user.id); // Ensure user_id matches
+    if (error) { console.error("Error toggling recurring item:", error); throw error; }
+    await refreshData();
+  };
+  
   const deleteRecurringItem = async (id: string) => {
-    const { error } = await supabase
-      .from('recurring_items')
-      .update({ is_active: false })
-      .eq('id', id);
-
-    if (error) {
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถลบรายการซ้ำได้",
-        variant: "destructive"
-      });
-      return;
-    }
-
+    if (!user) { console.error("No user logged in to delete recurring item."); return; }
+    const { error } = await supabase.from('recurring_items').delete().eq('id', id).eq('user_id', user.id); // Ensure user_id matches
+    if (error) { console.error("Error deleting recurring item:", error); throw error; }
     await refreshData();
-    toast({
-      title: "สำเร็จ",
-      description: "ลบรายการซ้ำเรียบร้อยแล้ว",
-    });
   };
 
   const value = {
-    transactions,
-    budgets,
-    recurringItems,
-    loading,
-    addTransaction,
-    deleteTransaction,
-    addBudget,
-    deleteBudget,
-    addRecurringItem,
-    deleteRecurringItem,
-    refreshData,
+    transactions, budgets, recurringItems, loading, refreshData,
+    addTransaction, updateTransaction, deleteTransaction,
+    addBudget, deleteBudget,
+    addRecurringItem, updateRecurringItem, toggleRecurringItem, deleteRecurringItem
   };
 
   return (

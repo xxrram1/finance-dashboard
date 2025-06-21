@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -42,6 +41,7 @@ const Auth = () => {
             description: "กรุณากรอกชื่อ-นามสกุล",
             variant: "destructive"
           });
+          setLoading(false);
           return;
         }
         
@@ -53,11 +53,11 @@ const Auth = () => {
               'อีเมลนี้ถูกใช้งานแล้ว' : error.message,
             variant: "destructive"
           });
-} else {
-  toast({
-    title: "สมัครสมาชิกสำเร็จ",
-    description: "คุณได้เข้าสู่ระบบเรียบร้อยแล้ว",
-  });
+        } else {
+          toast({
+            title: "สมัครสมาชิกสำเร็จ",
+            description: "คุณได้เข้าสู่ระบบเรียบร้อยแล้ว",
+          });
         }
       }
     } catch (error) {
@@ -73,7 +73,7 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 sm:p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             {isLogin ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}
@@ -128,6 +128,7 @@ const Auth = () => {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
@@ -146,7 +147,7 @@ const Auth = () => {
         <div className="mt-6 text-center">
           <button
             onClick={() => setIsLogin(!isLogin)}
-            className="text-blue-600 hover:text-blue-800 text-sm"
+            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
           >
             {isLogin ? 'ยังไม่มีบัญชี? สมัครสมาชิก' : 'มีบัญชีแล้ว? เข้าสู่ระบบ'}
           </button>

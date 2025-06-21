@@ -353,6 +353,7 @@ function getPayloadConfigFromPayload(
     : config[key as keyof typeof config]
 }
 
+// FIX: Added ChartContainer to the export list
 export {
   ChartContainer,
   ChartTooltip,
