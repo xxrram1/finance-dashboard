@@ -1,187 +1,144 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { LogOut, User } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { LogOut, User, ShieldCheck, CalendarDays, History } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import PDFExport from './PDFExport';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const ProfileSkeleton = () => (
+    <div className="space-y-6">
+        <div><Skeleton className="h-9 w-72" /><Skeleton className="h-4 w-96 mt-2" /></div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            <Card className="lg:col-span-2">
+                <CardHeader><div className="flex items-center gap-4"><Skeleton className="h-20 w-20 rounded-full" /><div className="space-y-2"><Skeleton className="h-7 w-48" /><Skeleton className="h-4 w-64" /></div></div></CardHeader>
+                <CardContent className="space-y-4"><div className="space-y-2"><Skeleton className="h-4 w-24" /><Skeleton className="h-10 w-full" /></div><div className="space-y-2"><Skeleton className="h-4 w-16" /><Skeleton className="h-10 w-full" /></div><Skeleton className="h-10 w-40" /></CardContent>
+            </Card>
+            <div className="space-y-6">
+                <Card><CardHeader><Skeleton className="h-6 w-32" /></CardHeader><CardContent className="space-y-3"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></CardContent></Card>
+                <Card><CardHeader><Skeleton className="h-6 w-32" /></CardHeader><CardContent className="space-y-4"><Skeleton className="h-5 w-full" /><Skeleton className="h-5 w-full" /><Skeleton className="h-5 w-full" /></CardContent></Card>
+            </div>
+        </div>
+    </div>
+);
 
 const Profile = () => {
   const { user, signOut } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [fullName, setFullName] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [formLoading, setFormLoading] = useState(false);
 
   useEffect(() => {
-    loadProfile();
+    if (user) {
+      loadProfile();
+    } else {
+      setLoading(false);
+    }
   }, [user]);
 
   const loadProfile = async () => {
     if (!user) return;
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-
-    if (data) {
-      setProfile(data);
-      setFullName(data.full_name || '');
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+      if (error && error.code !== 'PGRST116') { // 'no rows found' is okay
+        throw error;
+      }
+      if (data) {
+        setProfile(data);
+        setFullName(data.full_name || '');
+      }
+    } catch (error) {
+       toast({ title: "เกิดข้อผิดพลาด", description: "ไม่สามารถโหลดข้อมูลโปรไฟล์ได้", variant: "destructive" });
+    } finally {
+        setLoading(false);
     }
   };
 
   const updateProfile = async () => {
     if (!user) return;
-
-    setLoading(true);
-    const { error } = await supabase
-      .from('profiles')
-      .upsert([{
-        id: user.id,
-        full_name: fullName,
-        updated_at: new Date().toISOString()
-      }]);
-
+    setFormLoading(true);
+    const { error } = await supabase.from('profiles').upsert({ id: user.id, full_name: fullName, updated_at: new Date().toISOString() }, { onConflict: 'id'});
     if (error) {
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถอัพเดทโปรไฟล์ได้",
-        variant: "destructive"
-      });
+      toast({ title: "เกิดข้อผิดพลาด", description: "ไม่สามารถอัพเดทโปรไฟล์ได้", variant: "destructive" });
     } else {
-      toast({
-        title: "สำเร็จ",
-        description: "อัพเดทโปรไฟล์เรียบร้อยแล้ว",
-      });
-      loadProfile();
+      toast({ title: "สำเร็จ", description: "อัพเดทโปรไฟล์เรียบร้อยแล้ว" });
+      await loadProfile();
     }
-    setLoading(false);
+    setFormLoading(false);
   };
 
-  const handleSignOut = async () => {
-    await signOut();
-    toast({
-      title: "ออกจากระบบ",
-      description: "ออกจากระบบเรียบร้อยแล้ว",
-    });
+  const getInitials = (name: string | null): string => {
+    if (!name || typeof name !== 'string') return '';
+    const initials = name
+      .split(' ')
+      .map(n => n[0])
+      .filter(Boolean)
+      .join('');
+    if (initials.length > 2) {
+      return `${initials[0]}${initials[initials.length - 1]}`.toUpperCase();
+    }
+    return initials.toUpperCase();
   };
+  
+  if (loading) {
+      return <ProfileSkeleton />;
+  }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">โปรไฟล์</h1>
-        <p className="text-gray-600 mt-1">จัดการข้อมูลส่วนตัวและการตั้งค่า</p>
+        <h1 className="text-3xl font-bold text-gray-900">โปรไฟล์และการตั้งค่า</h1>
+        <p className="text-muted-foreground mt-1">จัดการข้อมูลส่วนตัวและการตั้งค่าบัญชีของคุณ</p>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Profile Information */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-blue-100 p-3 rounded-full">
-              <User className="h-6 w-6 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">ข้อมูลส่วนตัว</h3>
-              <p className="text-sm text-gray-600">แก้ไขข้อมูลโปรไฟล์ของคุณ</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                อีเมล
-              </label>
-              <Input
-                type="email"
-                value={user?.email || ''}
-                disabled
-                className="bg-gray-50"
-              />
-              <p className="text-xs text-gray-500 mt-1">ไม่สามารถเปลี่ยนอีเมลได้</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                ชื่อ-นามสกุล
-              </label>
-              <Input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="กรอกชื่อ-นามสกุล"
-              />
-            </div>
-
-            <Button 
-              onClick={updateProfile}
-              disabled={loading}
-              className="w-full"
-            >
-              {loading ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
-            </Button>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">การจัดการ</h3>
-          
-          <div className="space-y-4">
-            <div className="border border-gray-200 rounded-lg p-4">
-              <h4 className="font-medium text-gray-900 mb-2">ส่งออกรายงาน</h4>
-              <p className="text-sm text-gray-600 mb-4">
-                ดาวน์โหลดรายงานการเงินทั้งหมดเป็นไฟล์ PDF
-              </p>
-              <PDFExport />
-            </div>
-
-            <div className="border border-red-200 rounded-lg p-4">
-              <h4 className="font-medium text-red-900 mb-2">ออกจากระบบ</h4>
-              <p className="text-sm text-red-600 mb-4">
-                ออกจากบัญชีผู้ใช้ปัจจุบัน
-              </p>
-              <Button 
-                onClick={handleSignOut}
-                variant="destructive"
-                className="flex items-center gap-2"
-              >
-                <LogOut size={16} />
-                ออกจากระบบ
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Account Stats */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">สถิติบัญชี</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-center p-4 bg-blue-50 rounded-lg">
-            <p className="text-2xl font-bold text-blue-600">
-              {profile?.created_at ? 
-                Math.floor((new Date().getTime() - new Date(profile.created_at).getTime()) / (1000 * 60 * 60 * 24)) 
-                : 0}
-            </p>
-            <p className="text-sm text-gray-600">วันที่ใช้งาน</p>
-          </div>
-          <div className="text-center p-4 bg-green-50 rounded-lg">
-            <p className="text-2xl font-bold text-green-600">
-              {user?.email_confirmed_at ? 'ยืนยันแล้ว' : 'ยังไม่ยืนยัน'}
-            </p>
-            <p className="text-sm text-gray-600">สถานะอีเมล</p>
-          </div>
-          <div className="text-center p-4 bg-purple-50 rounded-lg">
-            <p className="text-2xl font-bold text-purple-600">
-              {user?.last_sign_in_at ? 
-                new Date(user.last_sign_in_at).toLocaleDateString('th-TH') 
-                : 'ไม่ระบุ'}
-            </p>
-            <p className="text-sm text-gray-600">เข้าใช้ครั้งล่าสุด</p>
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        <Card className="lg:col-span-2">
+            <CardHeader>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <Avatar className="h-20 w-20 text-3xl">
+                        <AvatarImage src={profile?.avatar_url || ''} alt={fullName} />
+                        <AvatarFallback>{getInitials(fullName) || <User />}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                        <CardTitle className="text-2xl">{fullName || user?.email}</CardTitle>
+                        <CardDescription>จัดการข้อมูลส่วนตัวและอีเมลของคุณ</CardDescription>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="fullName">ชื่อ-นามสกุล</Label>
+                <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="กรอกชื่อ-นามสกุล"/>
+              </div>
+              <div>
+                <Label htmlFor="email">อีเมล</Label>
+                <Input id="email" type="email" value={user?.email || ''} disabled className="bg-muted cursor-not-allowed"/>
+              </div>
+              <Button onClick={updateProfile} disabled={formLoading}>{formLoading ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง'}</Button>
+            </CardContent>
+        </Card>
+        <div className="space-y-6">
+            <Card>
+                <CardHeader><CardTitle>การดำเนินการ</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                    <PDFExport />
+                    <Button onClick={signOut} variant="outline" className="w-full justify-start gap-2"><LogOut size={16} /> ออกจากระบบ</Button>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader><CardTitle>สถิติบัญชี</CardTitle></CardHeader>
+                <CardContent className="space-y-4 text-sm">
+                    <div className="flex items-center justify-between"><span className="text-muted-foreground flex items-center gap-2"><CalendarDays size={16}/>เป็นสมาชิกตั้งแต่</span> <span>{profile?.created_at ? new Date(profile.created_at).toLocaleDateString('th-TH') : '-'}</span></div>
+                    <div className="flex items-center justify-between"><span className="text-muted-foreground flex items-center gap-2"><History size={16}/>เข้าใช้ล่าสุด</span> <span>{user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString('th-TH') : '-'}</span></div>
+                    <div className="flex items-center justify-between"><span className="text-muted-foreground flex items-center gap-2"><ShieldCheck size={16}/>สถานะอีเมล</span> <span className="text-green-600 font-medium">{user?.email_confirmed_at ? 'ยืนยันแล้ว' : 'ยังไม่ยืนยัน'}</span></div>
+                </CardContent>
+            </Card>
         </div>
       </div>
     </div>

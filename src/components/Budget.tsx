@@ -1,234 +1,160 @@
 import React, { useState } from 'react';
 import { useSupabaseFinance } from '../context/SupabaseFinanceContext';
-import { Plus, Trash2, Target } from 'lucide-react';
+import { Plus, Target, Trash2, MoreVertical } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+// Budget Form Component
+const BudgetForm = ({ onFinished }: { onFinished: () => void }) => {
+    const { addBudget } = useSupabaseFinance();
+    const [form, setForm] = useState({
+        category: '',
+        amount: '',
+        month: new Date().toISOString().slice(0, 7)
+    });
+    const categories = ['อาหาร', 'การเดินทาง', 'ความบันเทิง', 'สาธารณูปโภค', 'สุขภาพ', 'ช็อปปิ้ง', 'ค่าใช้จ่ายอื่นๆ'];
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!form.category || !form.amount) {
+            toast({ title: "ข้อมูลไม่ครบถ้วน", variant: "destructive" });
+            return;
+        }
+        await addBudget({ ...form, amount: parseFloat(form.amount) });
+        onFinished();
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid gap-2">
+                <label>เดือน</label>
+                <Input type="month" value={form.month} onChange={(e) => setForm(p => ({ ...p, month: e.target.value }))} />
+            </div>
+            <div className="grid gap-2">
+                <label>หมวดหมู่</label>
+                <Select value={form.category} onValueChange={(value) => setForm(p => ({...p, category: value}))}>
+                    <SelectTrigger><SelectValue placeholder="เลือกหมวดหมู่" /></SelectTrigger>
+                    <SelectContent>
+                        {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="grid gap-2">
+                <label>จำนวนเงินงบประมาณ</label>
+                <Input type="number" value={form.amount} onChange={(e) => setForm(p => ({...p, amount: e.target.value}))} placeholder="0.00" required/>
+            </div>
+            <Button type="submit" className="w-full">บันทึกงบประมาณ</Button>
+        </form>
+    )
+}
 
 const Budget = () => {
-  const { budgets, transactions, addBudget, deleteBudget } = useSupabaseFinance();
-  const [form, setForm] = useState({
-    category: '',
-    amount: '',
-    month: new Date().toISOString().slice(0, 7) // YYYY-MM format
-  });
-
+  const { budgets, transactions, deleteBudget } = useSupabaseFinance();
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [isFormOpen, setFormOpen] = useState(false);
 
-  const categories = ['อาหาร', 'การเดินทาง', 'ความบันเทิง', 'สาธารณูปโภค', 'สุขภาพ', 'ช็อปปิ้ง', 'ค่าใช้จ่ายอื่นๆ'];
+  const monthTransactions = transactions.filter(t => t.type === 'expense' && t.date.startsWith(selectedMonth));
+  const monthBudgets = budgets.filter(b => b.month === selectedMonth);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!form.category || !form.amount) {
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    addBudget({
-      category: form.category,
-      amount: parseFloat(form.amount),
-      month: form.month
-    });
-
-    setForm({
-      category: '',
-      amount: '',
-      month: new Date().toISOString().slice(0, 7)
-    });
-
-    toast({
-      title: "สำเร็จ",
-      description: "เพิ่มงบประมาณสำเร็จแล้ว",
-    });
-  };
-
-  // Get budget tracking data for selected month
-  const getBudgetTracking = () => {
-    const monthBudgets = budgets.filter(b => b.month === selectedMonth);
-    const monthTransactions = transactions.filter(t => 
-      t.type === 'expense' && t.date.startsWith(selectedMonth)
-    );
-
-    const tracking = monthBudgets.map(budget => {
-      const spent = monthTransactions
-        .filter(t => t.category === budget.category)
-        .reduce((sum, t) => sum + t.amount, 0);
-      
+  const budgetTracking = monthBudgets.map(budget => {
+      const spent = monthTransactions.filter(t => t.category === budget.category).reduce((sum, t) => sum + t.amount, 0);
       const remaining = budget.amount - spent;
       const percentage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
-
-      return {
-        category: budget.category,
-        budgeted: budget.amount,
-        spent,
-        remaining,
-        percentage: Math.min(percentage, 100),
-        status: remaining >= 0 ? 'อยู่ใรแผน' : 'เกินงบประมาณ'
-      };
-    });
-
-    return tracking;
-  };
-
-  const budgetTracking = getBudgetTracking();
-  const totalBudgeted = budgetTracking.reduce((sum, item) => sum + item.budgeted, 0);
+      return { ...budget, spent, remaining, percentage: Math.min(percentage, 100) };
+  });
+  
+  const totalBudgeted = budgetTracking.reduce((sum, item) => sum + item.amount, 0);
   const totalSpent = budgetTracking.reduce((sum, item) => sum + item.spent, 0);
   const totalRemaining = totalBudgeted - totalSpent;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">การจัดการงบประมาณ</h1>
-        <p className="text-gray-600 mt-1">ตั้งค่าและติดตามงบประมาณรายเดือนของคุณ</p>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium opacity-90">งบประมาณทั้งหมด</h3>
-              <p className="text-2xl font-bold mt-2">${totalBudgeted.toLocaleString()}</p>
-            </div>
-            <Target className="h-8 w-8 opacity-80" />
-          </div>
+       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+        <div>
+            <h1 className="text-3xl font-bold text-gray-900">งบประมาณ</h1>
+            <p className="text-muted-foreground mt-1">ตั้งค่าและติดตามงบประมาณรายเดือนของคุณ</p>
         </div>
-        <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium opacity-90">ใช้จ่ายไปแล้ว</h3>
-              <p className="text-2xl font-bold mt-2">${totalSpent.toLocaleString()}</p>
-            </div>
-            <Target className="h-8 w-8 opacity-80" />
-          </div>
-        </div>
-        <div className={`bg-gradient-to-r ${totalRemaining >= 0 ? 'from-green-500 to-green-600' : 'from-orange-500 to-orange-600'} rounded-xl p-6 text-white`}>
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium opacity-90">คงเหลือ</h3>
-              <p className="text-2xl font-bold mt-2">${totalRemaining.toLocaleString()}</p>
-            </div>
-            <Target className="h-8 w-8 opacity-80" />
-          </div>
+        <div className="flex gap-2">
+          <Input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="w-48"/>
+          <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
+              <DialogTrigger asChild>
+                  <Button><Plus className="mr-2 h-4 w-4" /> ตั้งงบประมาณ</Button>
+              </DialogTrigger>
+              <DialogContent>
+                  <DialogHeader>
+                      <DialogTitle>ตั้งงบประมาณใหม่</DialogTitle>
+                      <DialogDescription>กำหนดงบประมาณสำหรับหมวดหมู่ในเดือนที่เลือก</DialogDescription>
+                  </DialogHeader>
+                  <BudgetForm onFinished={() => setFormOpen(false)} />
+              </DialogContent>
+          </Dialog>
         </div>
       </div>
 
-      {/* Add Budget Form */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">ตั้งค่างบประมาณ</h3>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">หมวดหมู่</label>
-            <select
-              value={form.category}
-              onChange={(e) => setForm(prev => ({ ...prev, category: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              required
-            >
-              <option value="">เลือกหมวดหมู่</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">จำนวนเงิน</label>
-            <input
-              type="number"
-              step="0.01"
-              value={form.amount}
-              onChange={(e) => setForm(prev => ({ ...prev, amount: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="0.00"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">เดือน</label>
-            <input
-              type="month"
-              value={form.month}
-              onChange={(e) => setForm(prev => ({ ...prev, month: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          
-          <div className="flex items-end">
-            <button
-              type="submit"
-              className="w-full bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-            >
-              <Plus size={16} />
-              ตั้งค่างบประมาณ
-            </button>
-          </div>
-        </form>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">งบประมาณทั้งหมด</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold">฿{totalBudgeted.toLocaleString()}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ใช้ไปแล้ว</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold">฿{totalSpent.toLocaleString()}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">คงเหลือ</CardTitle></CardHeader>
+          <CardContent><div className={`text-2xl font-bold ${totalRemaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>฿{totalRemaining.toLocaleString()}</div></CardContent>
+        </Card>
       </div>
-
-      {/* Budget Tracking */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-gray-900">การติดตามงบประมาณ</h3>
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-        
-        {budgetTracking.length === 0 ? (
-          <div className="p-8 text-center">
-            <p className="text-gray-500">ยังไม่มีการตั้งค่างบประมาณสำหรับเดือนนี้</p>
-          </div>
-        ) : (
-          <div className="p-6 space-y-4">
-            {budgetTracking.map((item) => (
-              <div key={item.category} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="font-medium text-gray-900">{item.category}</h4>
-                  <button
-                    onClick={() => deleteBudget(item.category, selectedMonth)}
-                    className="text-red-600 hover:text-red-800 transition-colors"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">งบประมาณ: ${item.budgeted.toFixed(2)}</span>
-                    <span className="text-gray-600">ใช้ไป: ${item.spent.toFixed(2)}</span>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>การติดตามงบประมาณ - {new Date(selectedMonth).toLocaleDateString('th-TH', {month: 'long', year: 'numeric'})}</CardTitle>
+          <CardDescription>ภาพรวมการใช้จ่ายเทียบกับงบประมาณในแต่ละหมวดหมู่</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {budgetTracking.length > 0 ? (
+            <div className="space-y-6">
+              {budgetTracking.map((item) => (
+                <div key={item.category}>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">{item.category}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        ฿{item.spent.toLocaleString()} / <span className="font-medium text-foreground">฿{item.amount.toLocaleString()}</span>
+                      </span>
+                      <DropdownMenu>
+                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4"/></Button></DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                              <DropdownMenuItem className="text-red-500" onClick={() => deleteBudget(item.id || '', '')}>ลบ</DropdownMenuItem>
+                          </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
-                  
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full transition-all ${
-                        item.status === 'อยู่ใรแผน' ? 'bg-green-500' : 'bg-red-500'
-                      }`}
-                      style={{ width: `${item.percentage}%` }}
-                    ></div>
-                  </div>
-                  
-                  <div className="flex justify-between text-sm">
-                    <span className={`font-medium ${
-                      item.remaining >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {item.remaining >= 0 ? 'คงเหลือ' : 'เกินงบ'}: ${Math.abs(item.remaining).toFixed(2)}
+                  <Progress value={item.percentage} className="mt-2 h-2" />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>{item.percentage.toFixed(0)}% ที่ใช้ไป</span>
+                    <span className={item.remaining >= 0 ? 'text-green-600' : 'text-red-600'}>
+                      {item.remaining >= 0 ? `เหลือ ฿${item.remaining.toLocaleString()}` : `เกิน ฿${Math.abs(item.remaining).toLocaleString()}`}
                     </span>
-                    <span className="text-gray-600">{item.percentage.toFixed(1)}%</span>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              <Target className="mx-auto h-12 w-12" />
+              <h3 className="mt-4 text-lg font-semibold">ยังไม่มีงบประมาณสำหรับเดือนนี้</h3>
+              <p className="mt-1 text-sm">คลิก 'ตั้งงบประมาณ' เพื่อเริ่มต้น</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

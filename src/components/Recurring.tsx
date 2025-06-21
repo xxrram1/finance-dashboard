@@ -1,17 +1,26 @@
 import React, { useState } from 'react';
 import { useSupabaseFinance } from '../context/SupabaseFinanceContext';
-import { Plus, Trash2, Calendar, DollarSign } from 'lucide-react';
+import { Plus, Trash2, Repeat } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 
-const Recurring = () => {
-  const { recurringItems, addRecurringItem, deleteRecurringItem } = useSupabaseFinance();
+const RecurringItemForm = ({ onFinished }: { onFinished: () => void }) => {
+  const { addRecurringItem } = useSupabaseFinance();
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     name: '',
     type: 'expense' as 'income' | 'expense',
     category: '',
     amount: '',
     frequency: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'yearly',
-    startDate: new Date().toISOString().split('T')[0]
+    start_date: new Date().toISOString().split('T')[0]
   });
 
   const categories = {
@@ -19,289 +28,105 @@ const Recurring = () => {
     expense: ['อาหาร', 'การเดินทาง', 'ความบันเทิง', 'สาธารณูปโภค', 'สุขภาพ', 'ช็อปปิ้ง', 'ค่าใช้จ่ายอื่นๆ']
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!form.name || !form.category || !form.amount) {
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน",
-        variant: "destructive"
-      });
-      return;
+        toast({ title: "ข้อมูลไม่ครบถ้วน", variant: "destructive" });
+        return;
     }
-
-    addRecurringItem({
-      name: form.name,
-      type: form.type,
-      category: form.category,
-      amount: parseFloat(form.amount),
-      frequency: form.frequency,
-      start_date: form.startDate,
-      is_active: true
-    });
-
-    setForm({
-      name: '',
-      type: 'expense',
-      category: '',
-      amount: '',
-      frequency: 'monthly',
-      startDate: new Date().toISOString().split('T')[0]
-    });
-
-    toast({
-      title: "สำเร็จ",
-      description: "เพิ่มรายการเกิดซ้ำสำเร็จแล้ว",
-    });
+    setLoading(true);
+    await addRecurringItem({ ...form, amount: parseFloat(form.amount), is_active: true });
+    setLoading(false);
+    if (onFinished) onFinished();
   };
 
-  const handleDelete = (id: string) => {
-    deleteRecurringItem(id);
-    toast({
-      title: "สำเร็จ",
-      description: "ลบรายการเกิดซ้ำสำเร็จแล้ว",
-    });
-  };
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid gap-2"><Label htmlFor="rec-name">ชื่อรายการ</Label><Input id="rec-name" value={form.name} onChange={e => setForm(p=>({...p, name: e.target.value}))} required placeholder="เช่น ค่าเช่าบ้าน, Netflix"/></div>
+        <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2"><Label>ประเภท</Label><Select value={form.type} onValueChange={(v) => setForm(p=>({...p, type: v as any, category:''}))}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="expense">รายจ่าย</SelectItem><SelectItem value="income">รายรับ</SelectItem></SelectContent></Select></div>
+            <div className="grid gap-2"><Label>หมวดหมู่</Label><Select value={form.category} onValueChange={(v) => setForm(p=>({...p, category: v}))} required><SelectTrigger><SelectValue placeholder="เลือกหมวดหมู่"/></SelectTrigger><SelectContent>{categories[form.type].map(c=><SelectItem value={c} key={c}>{c}</SelectItem>)}</SelectContent></Select></div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2"><Label>จำนวนเงิน</Label><Input type="number" step="0.01" value={form.amount} onChange={e => setForm(p=>({...p, amount: e.target.value}))} required/></div>
+            <div className="grid gap-2"><Label>ความถี่</Label><Select value={form.frequency} onValueChange={(v) => setForm(p=>({...p, frequency: v as any}))}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="daily">รายวัน</SelectItem><SelectItem value="weekly">รายสัปดาห์</SelectItem><SelectItem value="monthly">รายเดือน</SelectItem><SelectItem value="yearly">รายปี</SelectItem></SelectContent></Select></div>
+        </div>
+        <div className="grid gap-2"><Label>วันที่เริ่มต้น</Label><Input type="date" value={form.start_date} onChange={e => setForm(p=>({...p, start_date: e.target.value}))} /></div>
+        <Button type="submit" className="w-full" disabled={loading}>{loading ? "กำลังบันทึก..." : "บันทึกรายการ"}</Button>
+    </form>
+  )
+}
 
-  // Calculate recurring totals
-  const dailyTotal = recurringItems.reduce((sum, item) => {
-    if (item.type === 'expense') {
-      switch (item.frequency) {
-        case 'daily': return sum + item.amount;
-        case 'weekly': return sum + (item.amount / 7);
-        case 'monthly': return sum + (item.amount / 30);
-        case 'yearly': return sum + (item.amount / 365);
-        default: return sum;
-      }
-    }
-    return sum;
-  }, 0);
-
-  const monthlyTotal = recurringItems.reduce((sum, item) => {
-    if (item.type === 'expense') {
-      switch (item.frequency) {
-        case 'daily': return sum + (item.amount * 30);
-        case 'weekly': return sum + (item.amount * 4.33);
-        case 'monthly': return sum + item.amount;
-        case 'yearly': return sum + (item.amount / 12);
-        default: return sum;
-      }
-    }
-    return sum;
-  }, 0);
-
-  const yearlyTotal = recurringItems.reduce((sum, item) => {
-    if (item.type === 'expense') {
-      switch (item.frequency) {
-        case 'daily': return sum + (item.amount * 365);
-        case 'weekly': return sum + (item.amount * 52);
-        case 'monthly': return sum + (item.amount * 12);
-        case 'yearly': return sum + item.amount;
-        default: return sum;
-      }
-    }
-    return sum;
-  }, 0);
+const Recurring = () => {
+  const { recurringItems, deleteRecurringItem, loading } = useSupabaseFinance();
+  const [isFormOpen, setFormOpen] = useState(false);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">รายการเกิดซ้ำ</h1>
-        <p className="text-gray-600 mt-1">จัดการรายรับและรายจ่ายที่เกิดซ้ำของคุณ</p>
+       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">รายการเกิดซ้ำ</h1>
+          <p className="text-muted-foreground mt-1">จัดการรายรับและรายจ่ายที่เกิดขึ้นเป็นประจำ</p>
+        </div>
+        <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
+            <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4"/> เพิ่มรายการเกิดซ้ำ</Button></DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>เพิ่มรายการเกิดซ้ำ</DialogTitle>
+                    <DialogDescription>สำหรับรายรับ-รายจ่ายที่เกิดขึ้นสม่ำเสมอ เช่น เงินเดือน, ค่าเช่า</DialogDescription>
+                </DialogHeader>
+                <RecurringItemForm onFinished={() => setFormOpen(false)}/>
+            </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium opacity-90">รายจ่ายประจำวัน</h3>
-              <p className="text-2xl font-bold mt-2">${dailyTotal.toFixed(2)}</p>
-            </div>
-            <Calendar className="h-8 w-8 opacity-80" />
-          </div>
-        </div>
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium opacity-90">รายจ่ายประจำเดือน</h3>
-              <p className="text-2xl font-bold mt-2">${monthlyTotal.toFixed(2)}</p>
-            </div>
-            <Calendar className="h-8 w-8 opacity-80" />
-          </div>
-        </div>
-        <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium opacity-90">รายจ่ายประจำปี</h3>
-              <p className="text-2xl font-bold mt-2">${yearlyTotal.toFixed(2)}</p>
-            </div>
-            <Calendar className="h-8 w-8 opacity-80" />
-          </div>
-        </div>
-      </div>
-
-      {/* Add Recurring Form */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">เพิ่มรายการเกิดซ้ำ</h3>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อ</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="เช่น เงินเดือน"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">ประเภท</label>
-            <select
-              value={form.type}
-              onChange={(e) => setForm(prev => ({ ...prev, type: e.target.value as 'income' | 'expense', category: '' }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="expense">รายจ่าย</option>
-              <option value="income">รายรับ</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">หมวดหมู่</label>
-            <select
-              value={form.category}
-              onChange={(e) => setForm(prev => ({ ...prev, category: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              required
-            >
-              <option value="">เลือกหมวดหมู่</option>
-              {categories[form.type].map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">จำนวนเงิน</label>
-            <input
-              type="number"
-              step="0.01"
-              value={form.amount}
-              onChange={(e) => setForm(prev => ({ ...prev, amount: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="0.00"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">ความถี่</label>
-            <select
-              value={form.frequency}
-              onChange={(e) => setForm(prev => ({ ...prev, frequency: e.target.value as any }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="daily">รายวัน</option>
-              <option value="weekly">รายสัปดาห์</option>
-              <option value="monthly">รายเดือน</option>
-              <option value="yearly">รายปี</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">วันที่เริ่มต้น</label>
-            <input
-              type="date"
-              value={form.startDate}
-              onChange={(e) => setForm(prev => ({ ...prev, startDate: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          
-          <div className="lg:col-span-6">
-            <button
-              type="submit"
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-            >
-              <Plus size={16} />
-              เพิ่มรายการเกิดซ้ำ
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Recurring Items List */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">รายการเกิดซ้ำ</h3>
-        </div>
-        
-        {recurringItems.length === 0 ? (
-          <div className="p-8 text-center">
-            <p className="text-gray-500">ยังไม่มีรายการเกิดซ้ำ เพิ่มรายการแรกของคุณด้านบน!</p>
-          </div>
-        ) : (
+      <Card>
+        <CardHeader><CardTitle>รายการทั้งหมด</CardTitle><CardDescription>รายการทั้งหมดที่เกิดขึ้นเป็นประจำและยังใช้งานอยู่</CardDescription></CardHeader>
+        <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อ</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ประเภท</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">หมวดหมู่</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวนเงิน</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ความถี่</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่เริ่มต้น</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การดำเนินการ</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {recurringItems.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {item.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        item.type === 'income' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {item.type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {item.category}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <span className={item.type === 'income' ? 'text-green-600' : 'text-red-600'}>
-                        {item.type === 'income' ? '+' : '-'}${item.amount.toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
-                      {item.frequency}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(item.start_date).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="text-red-600 hover:text-red-800 transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <Table className="min-w-[700px] md:min-w-full">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ชื่อ</TableHead>
+                  <TableHead>ประเภท</TableHead>
+                  <TableHead>หมวดหมู่</TableHead>
+                  <TableHead>จำนวนเงิน</TableHead>
+                  <TableHead>ความถี่</TableHead>
+                  <TableHead>วันที่เริ่ม</TableHead>
+                  <TableHead className="text-center w-[80px]">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  Array.from({length: 3}).map((_, i) => (
+                    <TableRow key={i}><TableCell colSpan={7}><Skeleton className="h-8 w-full"/></TableCell></TableRow>
+                  ))
+                ) : recurringItems.length > 0 ? (
+                  recurringItems.map((item) => (
+                    <TableRow key={item.id} className="hover:bg-muted/50">
+                      <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell><span className={`px-2 py-1 text-xs font-semibold rounded-full ${item.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{item.type === 'income' ? 'รายรับ' : 'รายจ่าย'}</span></TableCell>
+                      <TableCell>{item.category}</TableCell>
+                      <TableCell className={`font-medium ${item.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>฿{item.amount.toLocaleString('th-TH', {minimumFractionDigits: 2})}</TableCell>
+                      <TableCell className="capitalize">{item.frequency}</TableCell>
+                      <TableCell>{new Date(item.start_date).toLocaleDateString('th-TH')}</TableCell>
+                      <TableCell className="text-center">
+                        <Button variant="ghost" size="icon" onClick={() => deleteRecurringItem(item.id)}><Trash2 className="h-4 w-4 text-muted-foreground"/></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-48 text-center">
+                      <div className="flex flex-col items-center gap-4"><Repeat className="h-16 w-16 text-muted-foreground/30"/><h3 className="text-xl font-semibold">ยังไม่มีรายการเกิดซ้ำ</h3><p className="text-muted-foreground">เพิ่มรายการ เช่น ค่าบริการรายเดือน หรือเงินเดือน</p></div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
-        )}
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

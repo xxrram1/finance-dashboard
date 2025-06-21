@@ -1,44 +1,19 @@
 import React, { useState } from 'react';
 import { useSupabaseFinance } from '../context/SupabaseFinanceContext';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { ArrowDown, ArrowUp, Scale, PiggyBank, BarChart2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const Dashboard = () => {
-  const { transactions, budgets, recurringItems } = useSupabaseFinance();
+  const { transactions, loading } = useSupabaseFinance();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  // Calculate insights
-  const yearTransactions = transactions.filter(t => 
-    new Date(t.date).getFullYear() === selectedYear
-  );
-
-  const totalIncome = yearTransactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const totalExpense = yearTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
-
+  const yearTransactions = transactions.filter(t => new Date(t.date).getFullYear() === selectedYear);
+  const totalIncome = yearTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+  const totalExpense = yearTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
   const netBalance = totalIncome - totalExpense;
-  const savingsRate = totalIncome > 0 ? ((netBalance / totalIncome) * 100).toFixed(1) : '0';
 
-  // Monthly recurring expenses
-  const monthlyRecurringExpenses = recurringItems
-    .filter(item => item.type === 'expense')
-    .reduce((sum, item) => {
-      switch (item.frequency) {
-        case 'daily': return sum + (item.amount * 30);
-        case 'weekly': return sum + (item.amount * 4.33);
-        case 'monthly': return sum + item.amount;
-        case 'yearly': return sum + (item.amount / 12);
-        default: return sum;
-      }
-    }, 0);
-
-  // Daily average expense
-  const dailyAvgExpense = totalExpense / 365;
-
-  // Top spending category
   const categorySpending = yearTransactions
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => {
@@ -46,71 +21,37 @@ const Dashboard = () => {
       return acc;
     }, {} as Record<string, number>);
 
-  const topCategory = Object.entries(categorySpending)
-    .sort(([,a], [,b]) => b - a)[0]?.[0] || 'None';
+  const topSpendingCategories = Object.entries(categorySpending)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 5)
+    .map(([name, value]) => ({ name, value }));
+  
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF'];
 
-  // Monthly data for chart
   const monthlyData = Array.from({ length: 12 }, (_, i) => {
-    const month = i + 1;
-    const monthTransactions = yearTransactions.filter(t => 
-      new Date(t.date).getMonth() + 1 === month
-    );
-    
-    const income = monthTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-    
-    const expense = monthTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
-
+    const monthTransactions = yearTransactions.filter(t => new Date(t.date).getMonth() === i);
     return {
-      month: new Date(2023, i).toLocaleDateString('th-TH', { month: 'short' }),
-      income,
-      expense,
-      budget: monthlyRecurringExpenses
+      month: new Date(selectedYear, i).toLocaleDateString('th-TH', { month: 'short' }),
+      income: monthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0),
+      expense: monthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0),
     };
   });
-
-  const insights = [
-    {
-      title: 'อัตราการออม',
-      value: `${savingsRate}%`,
-      description: 'ของรายได้ที่คุณออม',
-      color: 'bg-green-500'
-    },
-    {
-      title: 'ค่าใช้จ่ายเฉลี่ยต่อวัน',
-      value: `${dailyAvgExpense.toFixed(2)} บาท`,
-      description: 'การใช้จ่ายเฉลี่ยต่อวัน',
-      color: 'bg-orange-500'
-    },
-    {
-      title: 'หมวดหมู่ค่าใช้จ่ายสูงสุด',
-      value: topCategory,
-      description: 'ส่วนที่มีการใช้จ่ายสูงสุด',
-      color: 'bg-purple-500'
-    },
-    {
-      title: 'ยอดคงเหลือโดยประมาณ',
-      value: `${(netBalance * 2).toFixed(0)} บาท`,
-      description: 'ประมาณการ ณ สิ้นปี',
-      color: 'bg-blue-500'
-    }
-  ];
+  
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">แดชบอร์ดการเงิน</h1>
-          <p className="text-gray-600 mt-1">ดูข้อมูลเชิงลึกเกี่ยวกับสุขภาพทางการเงินของคุณ</p>
+          <p className="text-muted-foreground mt-1">ภาพรวมทางการเงินของคุณในปี {selectedYear}</p>
         </div>
         <select
           value={selectedYear}
           onChange={(e) => setSelectedYear(Number(e.target.value))}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-background"
         >
           {Array.from({ length: 5 }, (_, i) => {
             const year = new Date().getFullYear() - i;
@@ -119,82 +60,108 @@ const Dashboard = () => {
         </select>
       </div>
 
-      {/* Financial Insights */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {insights.map((insight, index) => (
-          <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className={`w-3 h-3 rounded-full ${insight.color} mr-3`}></div>
-              <h3 className="text-sm font-medium text-gray-600">{insight.title}</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">รายรับรวม</CardTitle>
+            <ArrowUp className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">฿{totalIncome.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">รายรับทั้งหมดในปีนี้</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">รายจ่ายรวม</CardTitle>
+            <ArrowDown className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">฿{totalExpense.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">รายจ่ายทั้งหมดในปีนี้</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">ยอดคงเหลือสุทธิ</CardTitle>
+            <Scale className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${netBalance >= 0 ? 'text-blue-600' : 'text-orange-500'}`}>
+              ฿{netBalance.toLocaleString()}
             </div>
-            <p className="text-2xl font-bold text-gray-900 mt-2">{insight.value}</p>
-            <p className="text-sm text-gray-500 mt-1">{insight.description}</p>
-          </div>
-        ))}
+            <p className="text-xs text-muted-foreground">ส่วนต่างรายรับ-รายจ่าย</p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-6 text-white">
-          <h3 className="text-sm font-medium opacity-90">รายรับรวม</h3>
-          <p className="text-3xl font-bold mt-2">{totalIncome.toLocaleString()} บาท</p>
-        </div>
-        <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-xl p-6 text-white">
-          <h3 className="text-sm font-medium opacity-90">รายจ่ายรวม</h3>
-          <p className="text-3xl font-bold mt-2">{totalExpense.toLocaleString()} บาท</p>
-        </div>
-        <div className={`bg-gradient-to-r ${netBalance >= 0 ? 'from-blue-500 to-blue-600' : 'from-orange-500 to-orange-600'} rounded-xl p-6 text-white`}>
-          <h3 className="text-sm font-medium opacity-90">ยอดคงเหลือสุทธิ</h3>
-          <p className="text-3xl font-bold mt-2">{netBalance.toLocaleString()} บาท</p>
-        </div>
-        <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white">
-          <h3 className="text-sm font-medium opacity-90">รายการประจำเดือน</h3>
-          <p className="text-3xl font-bold mt-2">{monthlyRecurringExpenses.toFixed(0)} บาท</p>
-        </div>
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart2 className="h-5 w-5"/>
+              ภาพรวมรายเดือน
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="h-80 pr-6">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={monthlyData} margin={{ top: 5, right: 0, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={12} />
+                <YAxis tickLine={false} axisLine={false} fontSize={12} tickFormatter={(value) => `฿${Number(value)/1000}k`} />
+                <Tooltip formatter={(value, name) => [`฿${Number(value).toLocaleString()}`, name]} cursor={{ fill: 'hsl(var(--muted))' }} contentStyle={{backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)'}}/>
+                <Bar dataKey="income" fill="hsl(var(--primary))" name="รายรับ" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expense" fill="hsl(var(--destructive))" name="รายจ่าย" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
-      {/* Yearly Comparison Chart */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">ภาพรวมรายเดือน - {selectedYear}</h3>
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip formatter={(value) => [`${Number(value).toLocaleString()} บาท`, '']} />
-              <Bar dataKey="income" fill="#10b981" name="รายรับ" />
-              <Bar dataKey="expense" fill="#ef4444" name="รายจ่าย" />
-              <Bar dataKey="budget" fill="#8b5cf6" name="งบประมาณ" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Spending Statistics */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">สถิติการใช้จ่าย</h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="text-center">
-            <p className="text-sm text-gray-600">สูงสุดต่อเดือน</p>
-            <p className="text-xl font-bold text-gray-900">{Math.max(...monthlyData.map(d => d.expense)).toLocaleString()} บาท</p>
-          </div>
-          <div className="text-center">
-            <p className="text-sm text-gray-600">ต่ำสุดต่อเดือน</p>
-            <p className="text-xl font-bold text-gray-900">{Math.min(...monthlyData.map(d => d.expense)).toLocaleString()} บาท</p>
-          </div>
-          <div className="text-center">
-            <p className="text-sm text-gray-600">เฉลี่ยต่อเดือน</p>
-            <p className="text-xl font-bold text-gray-900">{(totalExpense / 12).toFixed(0)} บาท</p>
-          </div>
-          <div className="text-center">
-            <p className="text-sm text-gray-600">เงินออมที่แนะนำ</p>
-            <p className="text-xl font-bold text-green-600">{(totalIncome * 0.2 / 12).toFixed(0)} บาท/เดือน</p>
-          </div>
-        </div>
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PiggyBank className="h-5 w-5"/>
+              หมวดหมู่รายจ่ายสูงสุด
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="h-80">
+            {topSpendingCategories.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={topSpendingCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                  {topSpendingCategories.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value, name) => [`฿${Number(value).toLocaleString()}`, name]} contentStyle={{backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)'}}/>
+              </PieChart>
+            </ResponsiveContainer>
+             ) : (
+              <div className="flex h-full items-center justify-center text-muted-foreground">ไม่มีข้อมูลรายจ่าย</div>
+             )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
 };
+
+const DashboardSkeleton = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div><Skeleton className="h-9 w-64" /><Skeleton className="h-4 w-80 mt-2" /></div>
+        <Skeleton className="h-10 w-32" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><Skeleton className="h-5 w-24"/><Skeleton className="h-4 w-4"/></CardHeader><CardContent><Skeleton className="h-8 w-40"/><Skeleton className="h-4 w-24 mt-1"/></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><Skeleton className="h-5 w-24"/><Skeleton className="h-4 w-4"/></CardHeader><CardContent><Skeleton className="h-8 w-40"/><Skeleton className="h-4 w-24 mt-1"/></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><Skeleton className="h-5 w-24"/><Skeleton className="h-4 w-4"/></CardHeader><CardContent><Skeleton className="h-8 w-40"/><Skeleton className="h-4 w-24 mt-1"/></CardContent></Card>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <Card className="lg:col-span-3"><CardHeader><Skeleton className="h-6 w-48"/></CardHeader><CardContent className="pr-6"><Skeleton className="h-80 w-full"/></CardContent></Card>
+        <Card className="lg:col-span-2"><CardHeader><Skeleton className="h-6 w-48"/></CardHeader><CardContent><Skeleton className="h-80 w-full"/></CardContent></Card>
+      </div>
+    </div>
+  );
 
 export default Dashboard;
