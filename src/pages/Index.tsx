@@ -1,12 +1,12 @@
 // src/pages/Index.tsx
 
-import React, { useState, useEffect } from 'react'; // Import useEffect
+import React, { useState, useEffect } from 'react';
 import {
   SidebarProvider, Sidebar, SidebarTrigger, SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarGroup,
 } from '@/components/ui/sidebar';
 import {
-  BarChart3, DollarSign, Calendar, PieChart, Settings, Folder, User, LogOut, MoreHorizontal, Calculator // Import Calculator icon
-} from 'lucide-react'; // Import Calculator from lucide-react
+  BarChart3, DollarSign, Calendar, PieChart, Settings, Folder, User, LogOut, MoreHorizontal, Calculator, Sparkles
+} from 'lucide-react'; // ADDED: Sparkles
 import { useAuth } from '../hooks/useAuth';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -22,7 +22,8 @@ import Budget from '../components/Budget';
 import Analysis from '../components/Analysis';
 import Planning from '../components/Planning';
 import Profile from '../components/Profile';
-import MathCalculator from '../components/MathCalculator'; // Import MathCalculator component
+import MathCalculator from '../components/MathCalculator';
+import AiTutor from '../components/AiTutor'; // ADDED
 
 const menuGroups = [
     {
@@ -41,10 +42,11 @@ const menuGroups = [
             { id: 'planning', label: 'วางแผน', 'icon': Settings },
         ]
     },
-    { // Add a new group for Math Tools
+    {
         label: "เครื่องมือ",
         items: [
-            { id: 'calculator', label: 'เครื่องคำนวณคณิต', icon: Calculator }, // New menu item for MathCalculator
+            { id: 'calculator', label: 'เครื่องคำนวณคณิต', icon: Calculator },
+            { id: 'ai-tutor', label: 'AI Tutor', icon: Sparkles }, // ADDED
         ]
     }
 ];
@@ -57,18 +59,17 @@ const pageComponents: { [key: string]: JSX.Element } = {
   analysis: <Analysis />,
   planning: <Planning />,
   profile: <Profile />,
-  calculator: <MathCalculator />, // Add MathCalculator here
+  calculator: <MathCalculator />,
+  'ai-tutor': <AiTutor />, // ADDED
 };
 
 const Index = () => {
   const { user, signOut } = useAuth();
-  // Initialize activeTab from localStorage, default to 'dashboard'
   const [activeTab, setActiveTab] = useState(() => {
     const savedTab = localStorage.getItem('activeTab');
     return savedTab || 'dashboard';
   });
 
-  // Update localStorage whenever activeTab changes
   useEffect(() => {
     localStorage.setItem('activeTab', activeTab);
   }, [activeTab]);
@@ -126,12 +127,10 @@ const Index = () => {
         <main className="flex-1 overflow-y-auto">
             <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm md:hidden p-4 flex items-center gap-4 border-b">
               <SidebarTrigger />
-              {/* Dynamically display the current active tab's label */}
               <h2 className="text-xl font-semibold capitalize">
                 {menuGroups.flatMap(group => group.items).find(item => item.id === activeTab)?.label || 'Dashboard'}
               </h2>
             </header>
-            {/* Version display for desktop */}
             <div className="absolute top-4 right-4 text-xs text-muted-foreground hidden md:block z-20">
                 เว็บนี้เป็นเวอร์ชั่น 1.2.0
             </div>

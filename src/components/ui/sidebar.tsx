@@ -1,8 +1,8 @@
+// src/components/ui/sidebar.tsx
+
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
-import { VariantProps, cva } from "class-variance-authority"
 import { PanelLeft } from "lucide-react"
-
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -38,7 +38,6 @@ function useSidebar() {
   if (!context) {
     throw new Error("useSidebar must be used within a SidebarProvider.")
   }
-
   return context
 }
 
@@ -298,8 +297,6 @@ const SidebarMenuItem = React.forwardRef<
 ))
 SidebarMenuItem.displayName = "SidebarMenuItem"
 
-
-// The new, beautifully decorated button
 const SidebarMenuButton = React.forwardRef<
   HTMLButtonElement,
   React.ComponentProps<"button"> & { asChild?: boolean; isActive?: boolean; tooltip?: string; }
@@ -324,7 +321,6 @@ const SidebarMenuButton = React.forwardRef<
         )}
         {...props}
       >
-        {/* Active state indicator bar */}
         <div className={cn(
             "absolute left-0 top-1/2 -translate-y-1/2 h-0 w-1 rounded-r-full bg-primary transition-all duration-200",
             isActive && "h-6"

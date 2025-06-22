@@ -35,10 +35,20 @@ const Auth = () => {
           });
         }
       } else {
+        // Client-side validation
         if (!fullName.trim()) {
           toast({
-            title: "เกิดข้อผิดพลาด",
+            title: "ข้อมูลไม่ครบถ้วน",
             description: "กรุณากรอกชื่อ-นามสกุล",
+            variant: "destructive"
+          });
+          setLoading(false);
+          return;
+        }
+        if (password.length < 6) {
+          toast({
+            title: "รหัสผ่านไม่ปลอดภัย",
+            description: "รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร",
             variant: "destructive"
           });
           setLoading(false);
@@ -48,7 +58,7 @@ const Auth = () => {
         const { error } = await signUp(email, password, fullName);
         if (error) {
           toast({
-            title: "เกิดข้อผิดพลาด",
+            title: "เกิดข้อผิดพลาดในการสมัคร",
             description: error.message === 'User already registered' ? 
               'อีเมลนี้ถูกใช้งานแล้ว' : error.message,
             variant: "destructive"
@@ -56,14 +66,15 @@ const Auth = () => {
         } else {
           toast({
             title: "สมัครสมาชิกสำเร็จ",
-            description: "คุณได้เข้าสู่ระบบเรียบร้อยแล้ว",
+            description: "ยืนยันอีเมลของคุณเพื่อเริ่มต้นใช้งาน",
           });
+          setIsLogin(true); // Switch to login view after successful signup
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "เกิดข้อผิดพลาดที่ไม่คาดคิด",
+        title: "เกิดข้อผิดพลาดที่ไม่คาดคิด",
+        description: error.message || "กรุณาลองใหม่อีกครั้ง",
         variant: "destructive"
       });
     } finally {
@@ -121,7 +132,7 @@ const Auth = () => {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="กรอกรหัสผ่าน"
+                placeholder="กรอกรหัสผ่าน (อย่างน้อย 6 ตัวอักษร)"
                 required
               />
               <button

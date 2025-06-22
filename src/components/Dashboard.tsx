@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useSupabaseFinance } from '../context/SupabaseFinanceContext';
+import ChartModal from './ui/ChartModal';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
@@ -21,7 +22,6 @@ import { MonthYearPicker } from '@/components/ui/month-year-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { useIsMobile } from '@/hooks/use-mobile';
-
 
 const Dashboard = () => {
   const { transactions, loading } = useSupabaseFinance();
@@ -96,7 +96,6 @@ const Dashboard = () => {
     };
   }, [yearTransactions, selectedYear]); 
 
-
   // Prepare monthly data for charts (e.g., BarChart of Income vs Expense)
   const monthlyData = useMemo(() => Array.from({ length: 12 }, (_, i) => {
     const month = i + 1; 
@@ -166,346 +165,453 @@ const Dashboard = () => {
   // Render skeleton loaders while data is loading
   if (loading) { 
     return (
-      <div className="space-y-6 p-4 md:p-8 max-w-screen-2xl mx-auto">
-        <header className="flex flex-col lg:flex-row justify-between lg:items-center gap-4">
-          <div className="space-y-2"><Skeleton className="h-9 w-72" /><Skeleton className="h-5 w-96" /></div>
-          <div className="flex gap-2 w-full lg:w-auto"><Skeleton className="h-10 w-full lg:w-48" /><Skeleton className="h-10 w-10" /><Skeleton className="h-10 w-full lg:w-32" /></div>
-        </header>
-        <main className="grid grid-cols-12 gap-6">
-          <section className="col-span-12 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div>
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6"><Skeleton className="h-[400px]" /><Skeleton className="h-[400px]" /></div>
-          </section>
-        </main>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          <header className="mb-8">
+            <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4">
+              <div className="space-y-2">
+                <Skeleton className="h-10 w-80" />
+                <Skeleton className="h-5 w-96" />
+              </div>
+              <div className="flex gap-3 flex-wrap">
+                <Skeleton className="h-11 w-48" />
+                <Skeleton className="h-11 w-11" />
+                <Skeleton className="h-11 w-32" />
+              </div>
+            </div>
+          </header>
+          <main className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map(i => (
+                <Skeleton key={i} className="h-32" />
+              ))}
+            </div>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <Skeleton className="h-[480px]" />
+              <Skeleton className="h-[480px]" />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Skeleton className="h-80" />
+              <Skeleton className="h-80" />
+            </div>
+          </main>
+        </div>
       </div>
     );
   }
 
   // Reusable component for displaying financial statistics in a card
-  const StatCard = ({ title, value, Icon, color, description }: { title: string; value: number; Icon: React.ElementType; color: string; description?: string; }) => (
+  const StatCard = ({ 
+    title, 
+    value, 
+    Icon, 
+    color, 
+    description,
+    className = "" 
+  }: { 
+    title: string; 
+    value: number; 
+    Icon: React.ElementType; 
+    color: string; 
+    description?: string; 
+    className?: string;
+  }) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="h-full"
+      className={cn("h-full", className)}
     >
-      <Card className="flex flex-col h-full hover:shadow-lg transition-shadow duration-300">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-          <Icon className={`h-5 w-5 ${color}`} />
+      <Card className="h-full border-0 shadow-lg bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+              {title}
+            </CardTitle>
+            <div className={cn("p-2 rounded-lg bg-gradient-to-r", color)}>
+              <Icon className="h-5 w-5 text-white" />
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="flex-grow flex flex-col justify-end">
-          <div className="text-3xl font-bold text-foreground mb-1">
+        <CardContent className="pt-0">
+          <div className="text-2xl xl:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-2">
             {formatCurrency(value, !showAmounts)}
           </div>
-          {description && <p className="text-xs text-muted-foreground">{description}</p>}
+          {description && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              {description}
+            </p>
+          )}
         </CardContent>
       </Card>
     </motion.div>
   );
 
   return (
-    <div className="space-y-6 p-4 md:p-8 max-w-screen-2xl mx-auto">
-      <header className="flex flex-col lg:flex-row justify-between lg:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-50 tracking-tight">สรุปภาพรวมการเงิน</h1>
-          <p className="text-muted-foreground mt-1 text-sm md:text-base">ข้อมูลเชิงลึกและการวิเคราะห์การเงินของคุณสำหรับปี {parseInt(selectedYear) + 543}</p>
-        </div>
-        <div className="flex items-center gap-2 w-full lg:w-auto flex-wrap">
-          {/* MonthYearPicker is used for year-only selection for consistency in UI */}
-          <MonthYearPicker 
-            selectedDate={`${selectedYear}-01`} // Month part is irrelevant for year-only selection but needed for format
-            onDateChange={(date) => setSelectedYear(date.slice(0, 4))}
-            className="flex-1 lg:flex-initial"
-          />
-          {/* Toggle amounts visibility button */}
-          <Button variant="outline" size="icon" onClick={() => setShowAmounts(!showAmounts)} aria-label={showAmounts ? "Hide amounts" : "Show amounts"}>
-            {showAmounts ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            <span className="sr-only">{showAmounts ? "Hide amounts" : "Show amounts"}</span>
-          </Button>
-          {/* Export to PDF button */}
-          <PDFExport /> 
-        </div>
-      </header>
-
-      {/* Section for key financial statistics cards */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="รายรับรวม"
-          value={totalIncome}
-          Icon={TrendingUp}
-          color="text-green-600 dark:text-green-400"
-          description="รายรับทั้งหมดในปีนี้"
-        />
-        <StatCard
-          title="รายจ่ายรวม"
-          value={totalExpense}
-          Icon={TrendingDown}
-          color="text-red-600 dark:text-red-400"
-          description={`จาก ${yearTransactions.filter(t => t.type === 'expense').length} รายการ`}
-        />
-        <StatCard
-          title="ยอดคงเหลือสุทธิ"
-          value={netBalance}
-          Icon={Wallet}
-          color={netBalance >= 0 ? "text-blue-600 dark:text-blue-400" : "text-orange-600 dark:text-orange-400"}
-          description={netBalance >= 0 ? "กำไรสุทธิ" : "ขาดทุนสุทธิ"}
-        />
-        <StatCard
-          title="อัตราการออม"
-          value={savingsRate}
-          Icon={Percent}
-          color="text-purple-600 dark:text-purple-400"
-          description={`${savingsRate.toFixed(1)}% ของรายรับรวม`}
-        />
-      </section>
-
-      {/* Section for Charts (Monthly Overview and Category Breakdown) */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Monthly Overview Bar Chart Card */}
-        <Card className="h-[400px] flex flex-col hover:shadow-lg transition-shadow duration-300">
-          <CardHeader className="flex-row justify-between items-center">
-            <div>
-              <CardTitle>ภาพรวมรายรับ-รายจ่ายรายเดือน</CardTitle>
-              <CardDescription>แสดงแนวโน้มตลอดทั้งปี {parseInt(selectedYear) + 543}</CardDescription>
-            </div>
-            {yearTransactions.length > 0 && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => openChartModal(
-                  monthlyData,
-                  chartConfig,
-                  'bar',
-                  'ภาพรวมรายรับ-รายจ่ายรายเดือน',
-                  `แสดงแนวโน้มตลอดทั้งปี ${parseInt(selectedYear) + 543}`
-                )}
-                className="flex-shrink-0"
-                aria-label="ขยายกราฟ"
-              >
-                <Maximize className="h-5 w-5" />
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent className="flex-grow flex items-center justify-center">
-            {yearTransactions.length > 0 ? (
-              <ChartContainer config={chartConfig} className="h-full w-full"> 
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={monthlyData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                    <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={12} />
-                    <YAxis tickLine={false} axisLine={false} fontSize={12}
-                           tickFormatter={(value) => showAmounts ? `฿${Number(value) / 1000}k` : '฿***'} />
-                    <ChartTooltip
-                      cursor={false}
-                      content={<ChartTooltipContent
-                        formatter={(value, name) => [`${formatCurrency(value as number, !showAmounts)}`, chartConfig[name as keyof typeof chartConfig]?.label || name]}
-                      />}
-                    /> 
-                    <ChartLegend content={<ChartLegendContent />} /> 
-                    <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="expense" fill="var(--color-expense)" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            ) : (
-              <div className="text-muted-foreground text-center p-4">
-                <Info className="h-8 w-8 mx-auto mb-2" />
-                <p>ไม่มีข้อมูลธุรกรรมสำหรับปีนี้</p>
-                <p className="text-sm">ลองเพิ่มรายการธุรกรรมหรือเลือกปีอื่น</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Expense Category Breakdown Pie Chart Card */}
-        <Card className="h-[400px] flex flex-col hover:shadow-lg transition-shadow duration-300">
-          <CardHeader className="flex-row justify-between items-center">
-            <div>
-              <CardTitle>การกระจายรายจ่ายตามหมวดหมู่</CardTitle>
-              <CardDescription>สัดส่วนรายจ่ายในรอบปี {parseInt(selectedYear) + 543}</CardDescription>
-            </div>
-            {categoryBreakdownData.expensePieData.length > 0 && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => openChartModal(
-                  categoryBreakdownData.expensePieData,
-                  chartConfig,
-                  'pie',
-                  'การกระจายรายจ่ายตามหมวดหมู่',
-                  `สัดส่วนรายจ่ายในรอบปี ${parseInt(selectedYear) + 543}`
-                )}
-                className="flex-shrink-0"
-                aria-label="ขยายกราฟ"
-              >
-                <Maximize className="h-5 w-5" />
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent className="flex-grow flex items-center justify-center">
-            {categoryBreakdownData.expensePieData.length > 0 ? (
-              <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[300px] w-full"> 
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                    <ChartTooltip content={<ChartTooltipContent nameKey="name" formatter={(value) => formatCurrency(value as number, !showAmounts)} />} /> 
-                    <Pie
-                      data={categoryBreakdownData.expensePieData}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={80} // Increased innerRadius for better visual
-                      outerRadius={120} // Increased outerRadius to make it larger
-                      paddingAngle={2}
-                      animationDuration={500}
-                      stroke="none"
-                    >
-                      {categoryBreakdownData.expensePieData.map((entry, index) => (
-                        <Cell key={`cell-expense-${index}`} fill={entry.fill} />
-                      ))}
-                    </Pie>
-                    <ChartLegend content={<ChartLegendContent />} /> 
-                  </PieChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            ) : (
-              <div className="text-muted-foreground text-center p-4">
-                <Info className="h-8 w-8 mx-auto mb-2" />
-                <p>ไม่มีข้อมูลรายจ่ายสำหรับปีนี้</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Section for additional insights: Top Expense Category and Daily Average Expense */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="hover:shadow-lg transition-shadow duration-300">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-muted-foreground" />
-              หมวดหมู่รายจ่ายสูงสุด
-            </CardTitle>
-            <CardDescription>หมวดหมู่ที่คุณใช้จ่ายมากที่สุดในปีนี้</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              {topExpenseCategory !== 'N/A' ? topExpenseCategory : 'ไม่มีข้อมูล'}
-            </div>
-            {topExpenseCategory !== 'N/A' && (
-              <p className="text-sm text-muted-foreground mt-1">
-                คุณใช้จ่ายไป {formatCurrency(yearTransactions.filter(t => t.type === 'expense' && t.category === topExpenseCategory).reduce((sum, t) => sum + t.amount, 0), !showAmounts)}
-                {' '}ในหมวดหมู่นี้
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <header className="mb-8">
+          <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-6">
+            <div className="space-y-2">
+              <h1 className="text-3xl xl:text-4xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+                สรุปภาพรวมการเงิน
+              </h1>
+              <p className="text-slate-600 dark:text-slate-300 text-base xl:text-lg">
+                ข้อมูลเชิงลึกและการวิเคราะห์การเงินของคุณสำหรับปี {parseInt(selectedYear) + 543}
               </p>
-            )}
-            <div className="mt-4">
-              <h4 className="text-lg font-semibold mb-2">รายจ่าย 5 อันดับแรก</h4>
-              <div className="space-y-3">
-                {Object.entries(yearTransactions.filter(t => t.type === 'expense').reduce((acc, t) => {
-                  acc[t.category] = (acc[t.category] || 0) + t.amount;
-                  return acc;
-                }, {} as Record<string, number>))
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 5)
-                .map(([category, amount], index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{category}</span>
-                    <span className="text-sm font-semibold">{formatCurrency(amount, !showAmounts)}</span>
-                  </div>
-                ))}
-              </div>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex items-center gap-3 flex-wrap">
+              <MonthYearPicker 
+                selectedDate={`${selectedYear}-01`}
+                onDateChange={(date) => setSelectedYear(date.slice(0, 4))}
+                className="min-w-48"
+              />
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={() => setShowAmounts(!showAmounts)} 
+                aria-label={showAmounts ? "Hide amounts" : "Show amounts"}
+                className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800"
+              >
+                {showAmounts ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+              <PDFExport />
+            </div>
+          </div>
+        </header>
 
-        <Card className="hover:shadow-lg transition-shadow duration-300">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-muted-foreground" />
-              ค่าใช้จ่ายเฉลี่ยรายวัน
-            </CardTitle>
-            <CardDescription>ประมาณการค่าใช้จ่ายในแต่ละวันของคุณ</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              {formatCurrency(dailyAvgExpense, !showAmounts)}
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              อิงจากรายจ่ายรวมในปี {parseInt(selectedYear) + 543}
-            </p>
-          </CardContent>
-        </Card>
-      </section>
-      
+        <main className="space-y-8">
+          {/* Key Financial Statistics */}
+          <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            <StatCard
+              title="รายรับรวม"
+              value={totalIncome}
+              Icon={TrendingUp}
+              color="from-green-500 to-emerald-600"
+              description="รายรับทั้งหมดในปีนี้"
+            />
+            <StatCard
+              title="รายจ่ายรวม"
+              value={totalExpense}
+              Icon={TrendingDown}
+              color="from-red-500 to-rose-600"
+              description={`จาก ${yearTransactions.filter(t => t.type === 'expense').length} รายการ`}
+            />
+            <StatCard
+              title="ยอดคงเหลือสุทธิ"
+              value={netBalance}
+              Icon={Wallet}
+              color={netBalance >= 0 ? "from-blue-500 to-cyan-600" : "from-orange-500 to-amber-600"}
+              description={netBalance >= 0 ? "กำไรสุทธิ" : "ขาดทุนสุทธิ"}
+            />
+            <StatCard
+              title="อัตราการออม"
+              value={savingsRate}
+              Icon={Percent}
+              color="from-purple-500 to-violet-600"
+              description={`${savingsRate.toFixed(1)}% ของรายรับรวม`}
+            />
+          </section>
+
+          {/* Charts Section */}
+          <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            {/* Monthly Overview Bar Chart */}
+            <Card className="border-0 shadow-lg bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2">
+                    <CardTitle className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                      ภาพรวมรายรับ-รายจ่ายรายเดือน
+                    </CardTitle>
+                    <CardDescription className="text-slate-600 dark:text-slate-300">
+                      แสดงแนวโน้มตลอดทั้งปี {parseInt(selectedYear) + 543}
+                    </CardDescription>
+                  </div>
+                  {yearTransactions.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openChartModal(
+                        monthlyData,
+                        chartConfig,
+                        'bar',
+                        'ภาพรวมรายรับ-รายจ่ายรายเดือน',
+                        `แสดงแนวโน้มตลอดทั้งปี ${parseInt(selectedYear) + 543}`
+                      )}
+                      className="flex-shrink-0 hover:bg-slate-100 dark:hover:bg-slate-700"
+                      aria-label="ขยายกราฟ"
+                    >
+                      <Maximize className="h-5 w-5" />
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="h-[400px] w-full">
+                  {yearTransactions.length > 0 ? (
+                    <ChartContainer config={chartConfig} className="h-full w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={monthlyData} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
+                          <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
+                          <XAxis 
+                            dataKey="month" 
+                            tickLine={false} 
+                            axisLine={false} 
+                            fontSize={12}
+                            tick={{ fill: '#64748b' }}
+                          />
+                          <YAxis 
+                            tickLine={false} 
+                            axisLine={false} 
+                            fontSize={12}
+                            tick={{ fill: '#64748b' }}
+                            tickFormatter={(value) => showAmounts ? `฿${Number(value) / 1000}k` : '฿***'} 
+                          />
+                          <ChartTooltip
+                            cursor={{ fill: 'rgba(0,0,0,0.1)' }}
+                            content={<ChartTooltipContent
+                              formatter={(value, name) => [
+                                `${formatCurrency(value as number, !showAmounts)}`, 
+                                chartConfig[name as keyof typeof chartConfig]?.label || name
+                              ]}
+                            />}
+                          />
+                          <ChartLegend content={<ChartLegendContent />} />
+                          <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="expense" fill="var(--color-expense)" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
+                      <div className="text-center space-y-3">
+                        <Info className="h-12 w-12 mx-auto opacity-50" />
+                        <div>
+                          <p className="text-lg font-medium">ไม่มีข้อมูลธุรกรรมสำหรับปีนี้</p>
+                          <p className="text-sm">ลองเพิ่มรายการธุรกรรมหรือเลือกปีอื่น</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Expense Category Breakdown Pie Chart */}
+            <Card className="border-0 shadow-lg bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2">
+                    <CardTitle className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                      การกระจายรายจ่ายตามหมวดหมู่
+                    </CardTitle>
+                    <CardDescription className="text-slate-600 dark:text-slate-300">
+                      สัดส่วนรายจ่ายในรอบปี {parseInt(selectedYear) + 543}
+                    </CardDescription>
+                  </div>
+                  {categoryBreakdownData.expensePieData.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openChartModal(
+                        categoryBreakdownData.expensePieData,
+                        chartConfig,
+                        'pie',
+                        'การกระจายรายจ่ายตามหมวดหมู่',
+                        `สัดส่วนรายจ่ายในรอบปี ${parseInt(selectedYear) + 543}`
+                      )}
+                      className="flex-shrink-0 hover:bg-slate-100 dark:hover:bg-slate-700"
+                      aria-label="ขยายกราฟ"
+                    >
+                      <Maximize className="h-5 w-5" />
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="h-[400px] w-full">
+                  {categoryBreakdownData.expensePieData.length > 0 ? (
+                    <ChartContainer config={chartConfig} className="h-full w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
+                          <ChartTooltip 
+                            content={<ChartTooltipContent 
+                              nameKey="name" 
+                              formatter={(value) => formatCurrency(value as number, !showAmounts)} 
+                            />} 
+                          />
+                          <Pie
+                            data={categoryBreakdownData.expensePieData}
+                            dataKey="value"
+                            nameKey="name"
+                            innerRadius={60}
+                            outerRadius={140}
+                            paddingAngle={2}
+                            animationDuration={500}
+                            stroke="none"
+                          >
+                            {categoryBreakdownData.expensePieData.map((entry, index) => (
+                              <Cell key={`cell-expense-${index}`} fill={entry.fill} />
+                            ))}
+                          </Pie>
+                          <ChartLegend content={<ChartLegendContent />} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
+                      <div className="text-center space-y-3">
+                        <Info className="h-12 w-12 mx-auto opacity-50" />
+                        <div>
+                          <p className="text-lg font-medium">ไม่มีข้อมูลรายจ่ายสำหรับปีนี้</p>
+                          <p className="text-sm">ลองเพิ่มรายการธุรกรรมหรือเลือกปีอื่น</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+
+          {/* Additional Insights */}
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="border-0 shadow-lg bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-3 text-xl font-bold text-slate-800 dark:text-slate-100">
+                  <div className="p-2 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600">
+                    <Package className="h-5 w-5 text-white" />
+                  </div>
+                  หมวดหมู่รายจ่ายสูงสุด
+                </CardTitle>
+                <CardDescription className="text-slate-600 dark:text-slate-300">
+                  หมวดหมู่ที่คุณใช้จ่ายมากที่สุดในปีนี้
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+                  {topExpenseCategory !== 'N/A' ? topExpenseCategory : 'ไม่มีข้อมูล'}
+                </div>
+                {topExpenseCategory !== 'N/A' && (
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
+                    คุณใช้จ่ายไป {formatCurrency(
+                      yearTransactions
+                        .filter(t => t.type === 'expense' && t.category === topExpenseCategory)
+                        .reduce((sum, t) => sum + t.amount, 0), 
+                      !showAmounts
+                    )} ในหมวดหมู่นี้
+                  </p>
+                )}
+                <div>
+                  <h4 className="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-100">
+                    รายจ่าย 5 อันดับแรก
+                  </h4>
+                  <div className="space-y-3">
+                    {Object.entries(
+                      yearTransactions
+                        .filter(t => t.type === 'expense')
+                        .reduce((acc, t) => {
+                          acc[t.category] = (acc[t.category] || 0) + t.amount;
+                          return acc;
+                        }, {} as Record<string, number>)
+                    )
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, 5)
+                    .map(([category, amount], index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                          {category}
+                        </span>
+                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                          {formatCurrency(amount, !showAmounts)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-lg bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-3 text-xl font-bold text-slate-800 dark:text-slate-100">
+                  <div className="p-2 rounded-lg bg-gradient-to-r from-teal-500 to-cyan-600">
+                    <Activity className="h-5 w-5 text-white" />
+                  </div>
+                  ค่าใช้จ่ายเฉลี่ยรายวัน
+                </CardTitle>
+                <CardDescription className="text-slate-600 dark:text-slate-300">
+                  ประมาณการค่าใช้จ่ายในแต่ละวันของคุณ
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">
+                  {formatCurrency(dailyAvgExpense, !showAmounts)}
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-300">
+                  อิงจากรายจ่ายรวมในปี {parseInt(selectedYear) + 543}
+                </p>
+                <div className="p-4 bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-700 dark:to-slate-600 rounded-lg">
+                  <div className="grid grid-cols-2 gap-4 text-center">
+                    <div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        รายจ่ายรวม
+                      </p>
+                      <p className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                        {formatCurrency(totalExpense, !showAmounts)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        จำนวนวัน
+                      </p>
+                      <p className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                        {new Date(parseInt(selectedYear), 1, 29).getDate() === 29 ? 366 : 365} วัน
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+        </main>
+      </div>
+
       {/* Chart Modal (Dialog for Desktop, Drawer for Mobile) */}
-      {isChartModalOpen && (
-        isMobile ? (
-          <Drawer open={isChartModalOpen} onClose={() => setIsChartModalOpen(false)}>
-            <DrawerContent>
-              <DrawerHeader>
-                <DrawerTitle>{modalChartTitle}</DrawerTitle>
-                <DrawerDescription>{modalChartDescription}</DrawerDescription>
-              </DrawerHeader>
-              <div className="h-[70vh] p-4 flex items-center justify-center">
-                <ChartContainer config={modalChartConfig} className="h-full w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    {modalChartType === 'bar' && (
-                      <BarChart data={modalChartData} margin={{ top: 20, right: 20, bottom: 5, left: -10 }}>
-                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                        <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={12} />
-                        <YAxis tickLine={false} axisLine={false} fontSize={12} tickFormatter={(v) => showAmounts ? `฿${Number(v)/1000}k` : '฿***'} />
-                        <ChartTooltip cursor={false} content={<ChartTooltipContent formatter={(value, name) => [formatCurrency(value as number, !showAmounts), modalChartConfig[name as keyof typeof modalChartConfig]?.label]}/>} />
-                        <ChartLegend content={<ChartLegendContent />} />
-                        <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="expense" fill="var(--color-expense)" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    )}
-                    {modalChartType === 'pie' && (
-                      <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                        <ChartTooltip content={<ChartTooltipContent nameKey="name" formatter={(value) => formatCurrency(value as number, !showAmounts)} />} />
-                        <Pie data={modalChartData} dataKey="value" nameKey="name" innerRadius={80} outerRadius={120} paddingAngle={2} animationDuration={500} stroke="none"/>
-                        <ChartLegend content={<ChartLegendContent />} />
-                      </PieChart>
-                    )}
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </div>
-            </DrawerContent>
-          </Drawer>
-        ) : (
-          <Dialog open={isChartModalOpen} onOpenChange={() => setIsChartModalOpen(false)}>
-            <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-6">
-              <DialogHeader>
-                <DialogTitle>{modalChartTitle}</DialogTitle>
-                <DialogDescription>{modalChartDescription}</DialogDescription>
-              </DialogHeader>
-              <div className="flex-1 flex items-center justify-center">
-                <ChartContainer config={modalChartConfig} className="h-full w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    {modalChartType === 'bar' && (
-                      <BarChart data={modalChartData} margin={{ top: 20, right: 20, bottom: 5, left: -10 }}>
-                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                        <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={12} />
-                        <YAxis tickLine={false} axisLine={false} fontSize={12} tickFormatter={(v) => showAmounts ? `฿${Number(v)/1000}k` : '฿***'} />
-                        <ChartTooltip cursor={false} content={<ChartTooltipContent formatter={(value, name) => [formatCurrency(value as number, !showAmounts), modalChartConfig[name as keyof typeof modalChartConfig]?.label]}/>} />
-                        <ChartLegend content={<ChartLegendContent />} />
-                        <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="expense" fill="var(--color-expense)" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    )}
-                    {modalChartType === 'pie' && (
-                      <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                        <ChartTooltip content={<ChartTooltipContent nameKey="name" formatter={(value) => formatCurrency(value as number, !showAmounts)} />} />
-                        <Pie data={modalChartData} dataKey="value" nameKey="name" innerRadius={80} outerRadius={120} paddingAngle={2} animationDuration={500} stroke="none"/>
-                        <ChartLegend content={<ChartLegendContent />} />
-                      </PieChart>
-                    )}
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )
+      {/* REFACTORED: Use the new ChartModal component */}
+<ChartModal
+  isOpen={isChartModalOpen}
+  onClose={() => setIsChartModalOpen(false)}
+  title={modalChartTitle}
+  description={modalChartDescription}
+>
+  <ChartContainer config={modalChartConfig} className="h-full w-full max-w-full">
+    <ResponsiveContainer width="100%" height="100%">
+      {modalChartType === 'bar' ? (
+        <BarChart data={modalChartData} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
+          <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
+          <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={12} tick={{ fill: '#64748b' }} />
+          <YAxis tickLine={false} axisLine={false} fontSize={12} tick={{ fill: '#64748b' }} tickFormatter={(value) => showAmounts ? `฿${Number(value) / 1000}k` : '฿***'} />
+          <ChartTooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} content={<ChartTooltipContent formatter={(value, name) => [`${formatCurrency(value as number, !showAmounts)}`, chartConfig[name as keyof typeof chartConfig]?.label || name]} />} />
+          <ChartLegend content={<ChartLegendContent />} />
+          <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="expense" fill="var(--color-expense)" radius={[4, 4, 0, 0]} />
+        </BarChart>
+      ) : (
+        <PieChart>
+          <ChartTooltip content={<ChartTooltipContent nameKey="name" formatter={(value) => formatCurrency(value as number, !showAmounts)} />} />
+          <Pie data={modalChartData} dataKey="value" nameKey="name" innerRadius="30%" outerRadius="80%" paddingAngle={2} animationDuration={500} stroke="none">
+            {modalChartData.map((entry, index) => (
+              <Cell key={`modal-cell-expense-${index}`} fill={entry.fill} />
+            ))}
+          </Pie>
+          <ChartLegend content={<ChartLegendContent />} />
+        </PieChart>
       )}
+    </ResponsiveContainer>
+  </ChartContainer>
+</ChartModal>
+
     </div>
   );
 };

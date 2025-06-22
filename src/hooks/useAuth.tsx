@@ -1,8 +1,9 @@
 // src/hooks/useAuth.tsx
 
-import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useMemo } from 'react'; // Added useMemo
+import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useMemo } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 interface AuthContextType {
   user: User | null;
@@ -11,7 +12,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
-  refreshUser: () => Promise<void>; // Added refreshUser method
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,7 +22,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Function to refresh the user data from Supabase
   const refreshUser = useCallback(async () => {
     setLoading(true);
     const { data: { user: supabaseUser }, error } = await supabase.auth.getUser();
@@ -36,19 +36,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []); 
 
   useEffect(() => {
-    // Initial session and user fetch
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    // Listen for auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        // Only set loading to false if not already loading for an explicit refreshUser call
         if (event !== 'INITIAL' && event !== 'SIGNED_IN') { 
            setLoading(false); 
         }
@@ -68,11 +65,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         },
       },
     });
-    // On successful signup, data.user will contain the user, update state
-    if (data.user) {
+  
+    if (data.user && !error) {
+      // CHANGE: Use .upsert() instead of .insert()
+      // This is more robust. It will create a profile if one doesn't exist,
+      // or update it if it does. This resolves the "duplicate key" error
+      // for users who might already have a profile created via another flow.
+      const { error: profileError } = await supabase.from('profiles').upsert(
+        {
+          id: data.user.id,
+          full_name: fullName,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' } // Specify the column to check for conflicts
+      );
+  
+      if (profileError) {
+        console.error("Error upserting profile:", profileError.message);
+        // Return the profile error because it's the more specific issue now.
+        return { error: profileError };
+      }
+      
       setUser(data.user);
       setSession(data.session);
     }
+    
     return { error };
   };
 
@@ -81,7 +98,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       email,
       password
     });
-    // On successful signin, data.user will contain the user, update state
     if (data.user) {
         setUser(data.user);
         setSession(data.session);
