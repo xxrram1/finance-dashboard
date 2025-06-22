@@ -5,14 +5,16 @@ import {
   SidebarProvider, Sidebar, SidebarTrigger, SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarGroup,
 } from '@/components/ui/sidebar';
 import {
-  BarChart3, DollarSign, Calendar, PieChart, Settings, Folder, User, LogOut, MoreHorizontal, Calculator, Sparkles
-} from 'lucide-react'; // ADDED: Sparkles
+  BarChart3, DollarSign, Calendar, PieChart, Settings, Folder, User, LogOut, MoreHorizontal, Calculator, Sparkles, LayoutDashboard, ListChecks, Cpu, AlertCircle
+} from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from '@/components/ui/badge';
+import { ReportModal } from '../components/ReportModal';
 
 // Page Components
 import Dashboard from '../components/Dashboard';
@@ -23,11 +25,12 @@ import Analysis from '../components/Analysis';
 import Planning from '../components/Planning';
 import Profile from '../components/Profile';
 import MathCalculator from '../components/MathCalculator';
-import AiTutor from '../components/AiTutor'; // ADDED
+import AiTutor from '../components/AiTutor';
 
 const menuGroups = [
     {
         label: "ภาพรวม",
+        icon: LayoutDashboard,
         items: [
             { id: 'dashboard', label: 'แดชบอร์ด', icon: BarChart3 },
             { id: 'analysis', label: 'วิเคราะห์', icon: PieChart },
@@ -35,6 +38,7 @@ const menuGroups = [
     },
     {
         label: "การจัดการ",
+        icon: ListChecks,
         items: [
             { id: 'transactions', label: 'ธุรกรรม', icon: DollarSign },
             { id: 'recurring', label: 'รายการซ้ำ', icon: Calendar },
@@ -44,9 +48,10 @@ const menuGroups = [
     },
     {
         label: "เครื่องมือ",
+        icon: Cpu,
         items: [
             { id: 'calculator', label: 'เครื่องคำนวณคณิต', icon: Calculator },
-            { id: 'ai-tutor', label: 'AI Tutor', icon: Sparkles }, // ADDED
+            { id: 'ai-tutor', label: 'AI Tutor', icon: Sparkles, highlight: true },
         ]
     }
 ];
@@ -60,15 +65,13 @@ const pageComponents: { [key: string]: JSX.Element } = {
   planning: <Planning />,
   profile: <Profile />,
   calculator: <MathCalculator />,
-  'ai-tutor': <AiTutor />, // ADDED
+  'ai-tutor': <AiTutor />,
 };
 
 const Index = () => {
   const { user, signOut } = useAuth();
-  const [activeTab, setActiveTab] = useState(() => {
-    const savedTab = localStorage.getItem('activeTab');
-    return savedTab || 'dashboard';
-  });
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'dashboard');
+  const [isReportModalOpen, setReportModalOpen] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('activeTab', activeTab);
@@ -82,20 +85,26 @@ const Index = () => {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen bg-secondary/50">
+      <div className="flex min-h-screen bg-slate-100 dark:bg-slate-900">
         <Sidebar>
           <SidebarHeader>
              <h1 className="text-2xl font-bold text-primary">FinanceFlow</h1>
           </SidebarHeader>
           <SidebarContent>
              {menuGroups.map(group => (
-                <SidebarGroup key={group.label} label={group.label}>
+                <SidebarGroup key={group.label} label={group.label} icon={group.icon}>
                     <SidebarMenu>
                     {group.items.map((item) => (
                         <SidebarMenuItem key={item.id}>
-                        <SidebarMenuButton onClick={() => setActiveTab(item.id)} isActive={activeTab === item.id} tooltip={item.label}>
+                        <SidebarMenuButton 
+                            onClick={() => setActiveTab(item.id)} 
+                            isActive={activeTab === item.id} 
+                            tooltip={item.label}
+                            highlight={(item as any).highlight}
+                        >
                             <item.icon size={20} />
-                            <span>{item.label}</span>
+                            <span className="flex-1">{item.label}</span>
+                            {(item as any).highlight && <Badge className="ml-auto bg-primary/20 text-primary hover:bg-primary/30">AI</Badge>}
                         </SidebarMenuButton>
                         </SidebarMenuItem>
                     ))}
@@ -104,6 +113,16 @@ const Index = () => {
              ))}
           </SidebarContent>
           <SidebarFooter>
+            <div className="p-2">
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton onClick={() => setReportModalOpen(true)} tooltip="แจ้งปัญหา/ข้อเสนอแนะ">
+                            <AlertCircle size={20} />
+                            <span>รายงาน</span>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu>
+            </div>
             <div className="p-4 border-t">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -132,7 +151,7 @@ const Index = () => {
               </h2>
             </header>
             <div className="absolute top-4 right-4 text-xs text-muted-foreground hidden md:block z-20">
-                เว็บนี้เป็นเวอร์ชั่น 1.3.0
+                เว็บนี้เป็นเวอร์ชั่น 1.2.0
             </div>
             <AnimatePresence mode="wait">
               <motion.div
@@ -147,6 +166,12 @@ const Index = () => {
             </AnimatePresence>
         </main>
       </div>
+      
+      <ReportModal 
+        isOpen={isReportModalOpen}
+        onOpenChange={setReportModalOpen}
+        activePage={activeTab}
+      />
     </SidebarProvider>
   );
 };
