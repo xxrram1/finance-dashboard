@@ -8,18 +8,15 @@ export const config = {
   runtime: 'edge',
 };
 
-// Helper function to convert a file to a Base64 string
 async function fileToGenerativePart(file: File) {
-  const base64EncodedDataPromise = new Promise<string>((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-    reader.readAsDataURL(file);
-  });
-  return {
-    inlineData: { data: await base64EncodedDataPromise, mimeType: file.type },
-  };
+    const arrayBuffer = await file.arrayBuffer();
+    return {
+        inlineData: {
+            data: Buffer.from(arrayBuffer).toString("base64"),
+            mimeType: file.type,
+        },
+    };
 }
-
 
 export default async function handler(request: Request) {
   if (!API_KEY) {
@@ -36,22 +33,36 @@ export default async function handler(request: Request) {
     }
     
     const genAI = new GoogleGenerativeAI(API_KEY);
-    // CHANGED: อัปเกรดโมเดลเป็น 1.5 Pro เพื่อความสามารถสูงสุด
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
-    const textPart = { text: prompt || "อธิบายรูปภาพนี้" }; // Provide a default prompt if only image is sent
+    // UPDATED: Relaxed safety settings to avoid blocking harmless content
+    const safetySettings = [
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+    ];
+    
+    const textPart = { text: prompt || "อธิบายรูปภาพนี้" };
     const imagePart = file ? [await fileToGenerativePart(file)] : [];
     
     const result = await model.generateContent({
         contents: [{ role: "user", parts: [textPart, ...imagePart] }],
+        safetySettings, // Apply the new safety settings
     });
     
-    const text = result.response.text();
+    // Check if the response was blocked
+    if (!result.response) {
+      throw new Error("The response from Gemini was blocked due to safety settings.");
+    }
 
+    const text = result.response.text();
     return new Response(JSON.stringify({ answer: text }), { status: 200 });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in askGemini handler:", error);
-    return new Response(JSON.stringify({ error: "Failed to process request to Gemini" }), { status: 500 });
+    // Provide a more specific error message if available
+    const errorMessage = error.message || "Failed to process request to Gemini";
+    return new Response(JSON.stringify({ error: errorMessage }), { status: 500 });
   }
 }
