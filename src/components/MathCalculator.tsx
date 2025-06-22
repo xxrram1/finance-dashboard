@@ -1,177 +1,98 @@
-// src/components/MathCalculator.tsx
 
 import React, { useState } from 'react';
-import {
-  Calculator, Plus, Minus, X, Divide, Equal, Delete,
-  Settings, SortAsc, Zap, Binary, Sigma, KeyRound, Combine
-} from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
-import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils'; // ADDED: แก้ไขข้อผิดพลาด cn is not defined
-import { ArraySorter, LogicCalculator, BaseConverter, GcdLcmCalculator, PrimeNumberTool, SetOperationsTool } from './math-tools';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { motion, AnimatePresence } from 'framer-motion';
+import { Pi, Sigma, Triangle } from 'lucide-react';
 
-// --- Main Calculator UI & Logic (Simplified) ---
-const MainCalculator = () => {
-  const [expression, setExpression] = useState('');
-  const [display, setDisplay] = useState('0');
+// Import the new and completed calculator components
+// FIX: Reverted to the most standard relative import paths,
+// explicitly including the .tsx file extension. This is usually the most robust
+// way to ensure module resolution in various build environments.
+import GeometryCalculator from './calculators/GeometryCalculator.tsx';
+import TrigonometryCalculator from './calculators/TrigonometryCalculator.tsx';
+import AlgebraCalculator from './calculators/AlgebraCalculator.tsx';
 
-  const handleInput = (value: string) => {
-    if (display === 'Error') {
-      setDisplay(value);
-      setExpression(value);
-      return;
-    }
-    const lastPart = expression.split(' ').pop() || '';
-    if (lastPart.includes('.') && value === '.') return;
-
-    setDisplay(current => (current === '0' || ['+', '-', '×', '÷'].includes(expression.slice(-2, -1))) ? value : current + value);
-    setExpression(current => current + value);
-  };
-  
-  const handleOperator = (op: string) => {
-    if (display === 'Error' || expression.endsWith(' ')) return;
-    setExpression(current => `${current} ${op} `);
-  };
-
-  const calculateResult = () => {
-    if (display === 'Error' || expression.endsWith(' ')) return;
-    try {
-      const evalExpression = expression.replace(/×/g, '*').replace(/÷/g, '/');
-      const result = new Function('return ' + evalExpression)();
-      setDisplay(String(result));
-      setExpression(String(result));
-    } catch (error) {
-      setDisplay('Error');
-      setExpression('');
-    }
-  };
-
-  const clear = () => {
-    setDisplay('0');
-    setExpression('');
-  };
-
-  const backspace = () => {
-    if (display === 'Error') return clear();
-    setDisplay(d => d.length > 1 ? d.slice(0, -1) : '0');
-    setExpression(e => e.trim().length > 1 ? e.slice(0, -1) : '');
-  };
-
-  const CalcButton = ({ children, onClick, className, ...props }: any) => (
-    <Button {...props} className={cn("h-16 text-2xl font-semibold shadow-md active:scale-95 transition-transform", className)} onClick={onClick}>
-      {children}
-    </Button>
-  );
-
-  return (
-    <Card className="max-w-xs mx-auto bg-white dark:bg-slate-900 border-gray-200 dark:border-gray-700 shadow-xl overflow-hidden">
-      <CardContent className="p-4">
-        {/* Display */}
-        <div className="bg-gray-800 text-white rounded-lg p-4 mb-4 text-right shadow-inner break-words">
-          <div className="h-7 text-gray-400 font-mono text-xl truncate">{expression || ' '}</div>
-          <div className="h-12 text-5xl font-bold font-mono truncate">{display}</div>
-        </div>
-        
-        <div className="grid grid-cols-4 gap-2">
-          <CalcButton variant="secondary" onClick={clear}>C</CalcButton>
-          <CalcButton variant="secondary" onClick={backspace}><Delete/></CalcButton>
-          <CalcButton variant="secondary" className="bg-blue-500 hover:bg-blue-600 text-white" onClick={() => handleOperator('÷')}><Divide/></CalcButton>
-          <CalcButton variant="secondary" className="bg-blue-500 hover:bg-blue-600 text-white" onClick={() => handleOperator('×')}><X/></CalcButton>
-          
-          <CalcButton onClick={() => handleInput('7')}>7</CalcButton>
-          <CalcButton onClick={() => handleInput('8')}>8</CalcButton>
-          <CalcButton onClick={() => handleInput('9')}>9</CalcButton>
-          <CalcButton variant="secondary" className="bg-blue-500 hover:bg-blue-600 text-white" onClick={() => handleOperator('-')}><Minus/></CalcButton>
-          
-          <CalcButton onClick={() => handleInput('4')}>4</CalcButton>
-          <CalcButton onClick={() => handleInput('5')}>5</CalcButton>
-          <CalcButton onClick={() => handleInput('6')}>6</CalcButton>
-          <CalcButton variant="secondary" className="bg-blue-500 hover:bg-blue-600 text-white" onClick={() => handleOperator('+')}><Plus/></CalcButton>
-
-          <CalcButton onClick={() => handleInput('1')}>1</CalcButton>
-          <CalcButton onClick={() => handleInput('2')}>2</CalcButton>
-          <CalcButton onClick={() => handleInput('3')}>3</CalcButton>
-          <CalcButton variant="secondary" className="bg-green-500 hover:bg-green-600 text-white row-span-2 h-auto" onClick={calculateResult}><Equal/></CalcButton>
-
-          <CalcButton className="col-span-2" onClick={() => handleInput('0')}>0</CalcButton>
-          <CalcButton onClick={() => handleInput('.')}>.</CalcButton>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
-// --- Main Component Wrapper ---
+/**
+ * MathCalculator Component
+ * This component acts as a central hub for various mathematical calculators,
+ * including Geometry, Trigonometry, and Algebra. It uses a tabbed interface
+ * to switch between different calculator functionalities and incorporates
+ * modern UI animations with Framer Motion for a smoother user experience.
+ */
 const MathCalculator = () => {
-  const [activeTool, setActiveTool] = useState<string | null>(null);
-  const isMobile = useIsMobile();
+  // State to manage the active tab, defaulting to 'geometry'
+  const [activeTab, setActiveTab] = useState('geometry');
 
-  const tools = [
-    { id: 'sorter', name: 'เรียงลำดับตัวเลข', icon: SortAsc, component: <ArraySorter/> },
-    { id: 'logic', name: 'คำนวณวงจรลอจิก', icon: Zap, component: <LogicCalculator/> },
-    { id: 'base', name: 'แปลงระบบเลขฐาน', icon: Binary, component: <BaseConverter/> },
-    { id: 'gcd_lcm', name: 'หา ห.ร.ม. / ค.ร.น.', icon: Sigma, component: <GcdLcmCalculator/> },
-    { id: 'prime', name: 'เครื่องมือจำนวนเฉพาะ', icon: KeyRound, component: <PrimeNumberTool/> },
-    { id: 'set', name: 'คำนวณเซต', icon: Combine, component: <SetOperationsTool/> },
-  ];
-
-  const ToolDialog = ({ children }: { children: React.ReactNode }) => {
-    const onOpenChange = (isOpen: boolean) => !isOpen && setActiveTool(null);
-    if (isMobile) {
-      return ( <Drawer open={!!activeTool} onOpenChange={onOpenChange}><DrawerContent className="p-4">{children}</DrawerContent></Drawer> )
-    }
-    return ( <Dialog open={!!activeTool} onOpenChange={onOpenChange}><DialogContent className="max-w-lg">{children}</DialogContent></Dialog> )
-  };
+  /**
+   * Renders the content of the currently active calculator tab.
+   * This function dynamically returns the appropriate calculator component
+   * based on the `activeTab` state.
+   * @returns {JSX.Element | null} The JSX element for the active calculator, or null if no tab is active.
+   */
+  const renderContent = () => {
+      switch (activeTab) {
+          case 'geometry':
+            return <GeometryCalculator />;
+          case 'trigonometry':
+            return <TrigonometryCalculator />;
+          case 'algebra':
+            return <AlgebraCalculator />;
+          default:
+            return null;
+      }
+  }
 
   return (
-    <div className="min-h-screen w-full bg-slate-100/50 dark:bg-gray-950">
-      <div className="container mx-auto max-w-4xl px-4 py-8 space-y-10">
-        <header className="text-center space-y-3">
-          <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 100, delay: 0.1 }} className="w-20 h-20 mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
-            <Calculator className="w-10 h-10 text-white" />
-          </motion.div>
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-gray-900 dark:text-white">เครื่องคำนวณ</h1>
-          <p className="text-lg text-gray-600 dark:text-gray-300">เรียบง่าย ทรงพลัง และพร้อมสำหรับทุกการคำนวณ</p>
-        </header>
+    // Main container with a gradient background for visual appeal
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-slate-950">
+      {/* Centered content area with maximum width */}
+      <div className="container mx-auto max-w-7xl px-4 py-8 space-y-8">
+        {/* Header section with Framer Motion for animation */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }} // Initial animation state (invisible, slightly above)
+          animate={{ opacity: 1, y: 0 }}   // Animation to final state (visible, original position)
+          transition={{ duration: 0.5 }}   // Animation duration
+        >
+          <h1 className="text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
+            เครื่องมือคำนวณคณิตศาสตร์
+          </h1>
+          <p className="text-muted-foreground mt-1 text-base">
+            ชุดเครื่องมือสำหรับช่วยแก้ปัญหาคณิตศาสตร์ที่ซับซ้อน
+          </p>
+        </motion.div>
 
-        <MainCalculator />
+        {/* Tabs component for navigation between calculators */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            {/* List of tabs with responsive grid layout */}
+            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-6 h-auto p-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                {/* Geometry tab trigger */}
+                <TabsTrigger value="geometry" className="py-2.5 text-base gap-2">
+                  <Pi/> เรขาคณิต
+                </TabsTrigger>
+                {/* Trigonometry tab trigger */}
+                <TabsTrigger value="trigonometry" className="py-2.5 text-base gap-2">
+                  <Triangle/> ตรีโกณมิติ
+                </TabsTrigger>
+                {/* Algebra tab trigger */}
+                <TabsTrigger value="algebra" className="py-2.5 text-base gap-2">
+                  <Sigma/> พีชคณิต
+                </TabsTrigger>
+            </TabsList>
 
-        <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-gray-200 dark:border-gray-700 shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-3 text-xl font-bold">
-              <Settings className="w-6 h-6 text-purple-600" />
-              เครื่องมือคณิตศาสตร์เพื่อการศึกษา
-            </CardTitle>
-            <CardDescription>เครื่องมือเฉพาะทางเพื่อช่วยแก้ปัญหาและเสริมความเข้าใจ</CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tools.map((tool, index) => (
-              <motion.div key={tool.id} initial={{opacity: 0, y:20}} animate={{opacity: 1, y: 0}} transition={{delay: 0.05 * index}}>
-                <Button 
-                  variant="outline" 
-                  className="h-auto w-full flex items-center justify-start p-4 text-left shadow-sm hover:bg-slate-100 dark:hover:bg-slate-800 space-x-4"
-                  onClick={() => setActiveTool(tool.id)}
+            {/* Content area for active tab with exit/enter animations */}
+            <AnimatePresence mode="wait"> {/* 'wait' mode ensures one animation finishes before the next starts */}
+                <motion.div
+                    key={activeTab} // Key changes when activeTab changes, triggering animation
+                    initial={{ opacity: 0, y: 20 }} // Initial state for entering content
+                    animate={{ opacity: 1, y: 0 }}   // Animation for entering content
+                    exit={{ opacity: 0, y: -20}}     // Animation for exiting content
+                    transition={{ duration: 0.3, ease: 'easeInOut' }} // Animation duration and easing
                 >
-                  <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/50 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <tool.icon className="w-6 h-6 text-purple-600 dark:text-purple-400"/>
-                  </div>
-                  <span className="font-semibold text-base text-gray-800 dark:text-gray-200">{tool.name}</span>
-                </Button>
-              </motion.div>
-            ))}
-          </CardContent>
-        </Card>
+                   {renderContent()} {/* Render the active calculator component */}
+                </motion.div>
+            </AnimatePresence>
+        </Tabs>
       </div>
-
-      <ToolDialog>
-        {tools.find(t => t.id === activeTool)?.component}
-      </ToolDialog>
     </div>
   );
 };
