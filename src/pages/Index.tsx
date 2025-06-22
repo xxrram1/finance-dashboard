@@ -151,7 +151,7 @@ const Index = () => {
               </h2>
             </header>
             <div className="absolute top-4 right-4 text-xs text-muted-foreground hidden md:block z-20">
-                เว็บนี้เป็นเวอร์ชั่น 1.2.0
+                เว็บนี้เป็นเวอร์ชั่น 1.5.0
             </div>
             <AnimatePresence mode="wait">
               <motion.div
