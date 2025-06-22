@@ -33,7 +33,7 @@ export default async function handler(request: Request) {
     }
     
     const genAI = new GoogleGenerativeAI(API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     // UPDATED: Relaxed safety settings to avoid blocking harmless content
     const safetySettings = [
