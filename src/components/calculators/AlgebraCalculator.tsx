@@ -8,11 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-// Corrected: Changed 'SquareRoot' to 'Radical' for the icon import
-import { HelpCircle, Sigma, KeyRound, Combine, DivideSquare, Radical } from 'lucide-react';
+import { HelpCircle, Sigma, KeyRound, Combine, DivideSquare, Radical, FunctionSquare, Superscript, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-// Helper functions (existing from AlgebraCalculator.tsx)
+// --- HELPER FUNCTIONS ---
+
 const gcd = (a: number, b: number): number => {
     while (b !== 0) {
         const temp = b;
@@ -61,7 +61,6 @@ const parseSet = (input: string): number[] => {
     }
 };
 
-// --- NEW HELPER FUNCTIONS FOR INEQUALITIES AND ROOTS ---
 const simplifyRoot = (n: number): { coefficient: number, radicand: number, steps: string } => {
     if (n < 0) return { coefficient: NaN, radicand: NaN, steps: 'ไม่สามารถหาค่ารากที่สองของจำนวนลบได้' };
     if (n === 0) return { coefficient: 0, radicand: 0, steps: '$\\sqrt{0} = 0$' };
@@ -75,7 +74,6 @@ const simplifyRoot = (n: number): { coefficient: number, radicand: number, steps
         while (radicand % (i * i) === 0) {
             coefficient *= i;
             radicand /= (i * i);
-            // Corrected: changed \\* to \\times for LaTeX multiplication symbol
             steps += `- ${n} = ${coefficient / i}^2 \\times ${radicand * (i * i)} = ${coefficient}^2 \\times ${radicand}$ (ดึง ${i} ออกมา)\n`;
         }
     }
@@ -93,7 +91,190 @@ const simplifyRoot = (n: number): { coefficient: number, radicand: number, steps
     return { coefficient, radicand, steps };
 };
 
-// Calculation Steps Modal Component (existing from AlgebraCalculator.tsx)
+const solveQuadratic = (a: number, b: number, c: number): { 
+    solutions: { real: number[], complex?: string[] }, 
+    discriminant: number, 
+    steps: string 
+} => {
+    const discriminant = b * b - 4 * a * c;
+    let steps = `### การแก้สมการกำลังสอง $${a}x^2 ${b >= 0 ? '+' : ''}${b}x ${c >= 0 ? '+' : ''}${c} = 0$\n\n`;
+    
+    steps += `#### 1. ระบุค่าสัมประสิทธิ์\n`;
+    steps += `- $a = ${a}$\n`;
+    steps += `- $b = ${b}$\n`;
+    steps += `- $c = ${c}$\n\n`;
+    
+    steps += `#### 2. คำนวณ Discriminant (Δ)\n`;
+    steps += `- $\\Delta = b^2 - 4ac$\n`;
+    steps += `- $\\Delta = (${b})^2 - 4(${a})(${c})$\n`;
+    steps += `- $\\Delta = ${b * b} - ${4 * a * c}$\n`;
+    steps += `- $\\Delta = ${discriminant}$\n\n`;
+    
+    steps += `#### 3. วิเคราะห์ค่า Discriminant\n`;
+    
+    let solutions: { real: number[], complex?: string[] } = { real: [] };
+    
+    if (discriminant > 0) {
+        steps += `- $\\Delta > 0$ → มี 2 คำตอบที่เป็นจำนวนจริงที่แตกต่างกัน\n\n`;
+        steps += `#### 4. คำนวณคำตอบด้วยสูตร Quadratic\n`;
+        steps += `- $x = \\frac{-b \\pm \\sqrt{\\Delta}}{2a}$\n`;
+        
+        const sqrtDisc = Math.sqrt(discriminant);
+        const x1 = (-b + sqrtDisc) / (2 * a);
+        const x2 = (-b - sqrtDisc) / (2 * a);
+        
+        steps += `- $x_1 = \\frac{${-b} + \\sqrt{${discriminant}}}{2(${a})} = \\frac{${-b} + ${sqrtDisc.toFixed(4)}}{${2 * a}} = ${x1.toFixed(4)}$\n`;
+        steps += `- $x_2 = \\frac{${-b} - \\sqrt{${discriminant}}}{2(${a})} = \\frac{${-b} - ${sqrtDisc.toFixed(4)}}{${2 * a}} = ${x2.toFixed(4)}$\n`;
+        
+        solutions.real = [x1, x2];
+    } else if (discriminant === 0) {
+        steps += `- $\\Delta = 0$ → มี 1 คำตอบซ้ำ (repeated root)\n\n`;
+        steps += `#### 4. คำนวณคำตอบ\n`;
+        steps += `- $x = \\frac{-b}{2a}$\n`;
+        
+        const x = -b / (2 * a);
+        steps += `- $x = \\frac{${-b}}{2(${a})} = \\frac{${-b}}{${2 * a}} = ${x.toFixed(4)}$\n`;
+        
+        solutions.real = [x];
+    } else {
+        steps += `- $\\Delta < 0$ → ไม่มีคำตอบในจำนวนจริง แต่มีคำตอบในจำนวนเชิงซ้อน\n\n`;
+        steps += `#### 4. คำนวณคำตอบเชิงซ้อน\n`;
+        steps += `- $x = \\frac{-b \\pm i\\sqrt{|\\Delta|}}{2a}$\n`;
+        
+        const realPart = -b / (2 * a);
+        const imagPart = Math.sqrt(-discriminant) / (2 * a);
+        
+        steps += `- ส่วนจริง: $\\frac{${-b}}{2(${a})} = ${realPart.toFixed(4)}$\n`;
+        steps += `- ส่วนจินตภาพ: $\\frac{\\sqrt{${-discriminant}}}{2(${a})} = ${imagPart.toFixed(4)}$\n`;
+        steps += `- $x_1 = ${realPart.toFixed(4)} + ${imagPart.toFixed(4)}i$\n`;
+        steps += `- $x_2 = ${realPart.toFixed(4)} - ${imagPart.toFixed(4)}i$\n`;
+        
+        solutions.complex = [
+            `${realPart.toFixed(4)} + ${imagPart.toFixed(4)}i`,
+            `${realPart.toFixed(4)} - ${imagPart.toFixed(4)}i`
+        ];
+    }
+    
+    return { solutions, discriminant, steps };
+};
+
+const calculateLog = (base: number, value: number): { result: number, steps: string } => {
+    if (base <= 0 || base === 1 || value <= 0) {
+        return { 
+            result: NaN, 
+            steps: '❌ ฐานต้องเป็นจำนวนบวกที่ไม่ใช่ 1 และค่าที่ต้องการหา log ต้องเป็นจำนวนบวก' 
+        };
+    }
+    
+    const result = Math.log(value) / Math.log(base);
+    
+    let steps = `### การคำนวณ $\\log_{${base}} ${value}$\n\n`;
+    steps += `#### 1. นิยามของลอการิทึม\n`;
+    steps += `- $\\log_{${base}} ${value} = x$ หมายความว่า ${base}^x = ${value}$\n\n`;
+    
+    steps += `#### 2. การคำนวณโดยใช้สูตรเปลี่ยนฐาน\n`;
+    steps += `- $\\log_{${base}} ${value} = \\frac{\\ln ${value}}{\\ln ${base}}$\n`;
+    steps += `- $\\log_{${base}} ${value} = \\frac{${Math.log(value).toFixed(6)}}{${Math.log(base).toFixed(6)}}$\n`;
+    steps += `- $\\log_{${base}} ${value} = ${result.toFixed(6)}$\n\n`;
+    
+    steps += `#### 3. ตรวจสอบคำตอบ\n`;
+    steps += `- ${base}^{${result.toFixed(6)}} = ${Math.pow(base, result).toFixed(6)} ≈ ${value}$ ✓\n`;
+    
+    return { result, steps };
+};
+
+const solveExponential = (base: number, equals: number): { result: number, steps: string } => {
+    if (base <= 0 || base === 1 || equals <= 0) {
+        return { 
+            result: NaN, 
+            steps: '❌ ฐานต้องเป็นจำนวนบวกที่ไม่ใช่ 1 และค่าที่เท่ากับต้องเป็นจำนวนบวก' 
+        };
+    }
+    
+    const result = Math.log(equals) / Math.log(base);
+    
+    let steps = `### การแก้สมการเอ็กซ์โพเนนเชียล ${base}^x = ${equals}$\n\n`;
+    steps += `#### 1. ใช้ logarithm ทั้งสองข้าง\n`;
+    steps += `- $\\log(${base}^x) = \\log(${equals})$\n`;
+    steps += `- $x \\cdot \\log(${base}) = \\log(${equals})$\n\n`;
+    
+    steps += `#### 2. หาค่า x\n`;
+    steps += `- $x = \\frac{\\log(${equals})}{\\log(${base})}$\n`;
+    steps += `- $x = \\frac{${Math.log10(equals).toFixed(6)}}{${Math.log10(base).toFixed(6)}}$ (ใช้ log ฐาน 10)\n`;
+    steps += `- $x = ${result.toFixed(6)}$\n\n`;
+    
+    steps += `#### 3. ตรวจสอบคำตอบ\n`;
+    steps += `- ${base}^{${result.toFixed(6)}} = ${Math.pow(base, result).toFixed(2)} ≈ ${equals}$ ✓\n`;
+    
+    return { result, steps };
+};
+
+const factorial = (n: number): bigint => {
+    if (n < 0 || !Number.isInteger(n)) return BigInt(0);
+    if (n === 0 || n === 1) return BigInt(1);
+    let result = BigInt(1);
+    for (let i = 2; i <= n; i++) {
+        result *= BigInt(i);
+    }
+    return result;
+};
+
+const permutation = (n: number, r: number): { result: bigint, steps: string } => {
+    if (n < 0 || r < 0 || !Number.isInteger(n) || !Number.isInteger(r) || r > n) {
+        return { result: BigInt(0), steps: '❌ ค่า n และ r ต้องเป็นจำนวนเต็มที่ไม่ติดลบ และ r ≤ n' };
+    }
+    
+    let steps = `### การคำนวณ Permutation P(${n}, ${r})\n\n`;
+    steps += `#### 1. สูตร Permutation\n`;
+    steps += `- $P(n, r) = \\frac{n!}{(n-r)!}$\n`;
+    steps += `- $P(${n}, ${r}) = \\frac{${n}!}{(${n}-${r})!} = \\frac{${n}!}{${n-r}!}$\n\n`;
+    
+    const nFact = factorial(n);
+    const nMinusRFact = factorial(n - r);
+    const result = nFact / nMinusRFact;
+    
+    steps += `#### 2. คำนวณ factorial\n`;
+    steps += `- ${n}! = ${nFact.toString()}$\n`;
+    steps += `- ${n-r}! = ${nMinusRFact.toString()}$\n\n`;
+    
+    steps += `#### 3. ผลลัพธ์\n`;
+    steps += `- $P(${n}, ${r}) = \\frac{${nFact.toString()}}{${nMinusRFact.toString()}} = ${result.toString()}$\n\n`;
+    
+    steps += `**ความหมาย:** มีวิธีจัดเรียง ${r} สิ่งจาก ${n} สิ่งโดยคำนึงถึงลำดับ ได้ ${result.toString()} วิธี\n`;
+    
+    return { result, steps };
+};
+
+const combination = (n: number, r: number): { result: bigint, steps: string } => {
+    if (n < 0 || r < 0 || !Number.isInteger(n) || !Number.isInteger(r) || r > n) {
+        return { result: BigInt(0), steps: '❌ ค่า n และ r ต้องเป็นจำนวนเต็มที่ไม่ติดลบ และ r ≤ n' };
+    }
+    
+    let steps = `### การคำนวณ Combination C(${n}, ${r})\n\n`;
+    steps += `#### 1. สูตร Combination\n`;
+    steps += `- $C(n, r) = \\binom{n}{r} = \\frac{n!}{r!(n-r)!}$\n`;
+    steps += `- $C(${n}, ${r}) = \\frac{${n}!}{${r}!(${n}-${r})!} = \\frac{${n}!}{${r}! \\cdot ${n-r}!}$\n\n`;
+    
+    const nFact = factorial(n);
+    const rFact = factorial(r);
+    const nMinusRFact = factorial(n - r);
+    const result = nFact / (rFact * nMinusRFact);
+    
+    steps += `#### 2. คำนวณ factorial\n`;
+    steps += `- ${n}! = ${nFact.toString()}$\n`;
+    steps += `- ${r}! = ${rFact.toString()}$\n`;
+    steps += `- ${n-r}! = ${nMinusRFact.toString()}$\n\n`;
+    
+    steps += `#### 3. ผลลัพธ์\n`;
+    steps += `- $C(${n}, ${r}) = \\frac{${nFact.toString()}}{${rFact.toString()} \\times ${nMinusRFact.toString()}} = ${result.toString()}$\n\n`;
+    
+    steps += `**ความหมาย:** มีวิธีเลือก ${r} สิ่งจาก ${n} สิ่งโดยไม่คำนึงถึงลำดับ ได้ ${result.toString()} วิธี\n`;
+    
+    return { result, steps };
+};
+
+// --- SUB-COMPONENTS ---
+
 const CalculationStepsModal = ({ isOpen, onClose, title, description, steps }: {
     isOpen: boolean;
     onClose: () => void;
@@ -114,7 +295,6 @@ const CalculationStepsModal = ({ isOpen, onClose, title, description, steps }: {
     </Dialog>
 );
 
-// GCD/LCM Tool Component (existing from AlgebraCalculator.tsx)
 const GcdLcmTool = () => {
     const [numA, setNumA] = useState('48');
     const [numB, setNumB] = useState('60');
@@ -129,7 +309,6 @@ const GcdLcmTool = () => {
             const gcdResult = gcd(a, b);
             const lcmResult = lcm(a, b);
             
-            // Generate step-by-step explanation
             let gcdSteps = `### 1. หา ห.ร.ม. (GCD) โดยใช้ Euclidean Algorithm\n`;
             let tempA = a, tempB = b;
             gcdSteps += `- เริ่มต้น: $GCD(${tempA}, ${tempB})$\n`;
@@ -211,7 +390,6 @@ const GcdLcmTool = () => {
     );
 };
 
-// Prime Number Tool Component (existing from AlgebraCalculator.tsx)
 const PrimeTool = () => {
     const [number, setNumber] = useState('97');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -317,7 +495,6 @@ const PrimeTool = () => {
     );
 };
 
-// Set Operations Tool Component (existing from AlgebraCalculator.tsx)
 const SetTool = () => {
     const [setA, setSetA] = useState('1, 2, 3, 4, 5');
     const [setB, setSetB] = useState('3, 4, 5, 6, 7');
@@ -466,7 +643,6 @@ const SetTool = () => {
     );
 };
 
-// --- NEW COMPONENT: Linear Inequality Solver ---
 const InequalitySolver = () => {
     const [expression, setExpression] = useState('2x + 5 > 15');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -475,7 +651,6 @@ const InequalitySolver = () => {
         let solution = '';
         let stepByStep = '';
 
-        // Basic regex to parse linear inequality: ax + b [operator] c
         const match = expression.match(/(-?\d*\.?\d*)\s*([a-zA-Z])\s*([+\-])\s*(-?\d*\.?\d*)\s*(<|>|<=|>=|==|!=)\s*(-?\d*\.?\d*)/);
         const matchSimple = expression.match(/([a-zA-Z])\s*(<|>|<=|>=|==|!=)\s*(-?\d*\.?\d*)/);
 
@@ -491,16 +666,14 @@ const InequalitySolver = () => {
                 return { result: null, steps: '❌ รูปแบบสมการไม่ถูกต้อง (เช่น 2x + 5 > 10)' };
             }
 
-            // Handle cases like "x + 5 > 10" (a is implied as 1)
-            if (match[1] === '-' && !isNaN(parseFloat(match[2]))) { // e.g., -5x
+            if (match[1] === '-' && !isNaN(parseFloat(match[2]))) {
                  a = -parseFloat(match[2]);
-            } else if (match[1] === '') { // e.g., x
+            } else if (match[1] === '') {
                 a = 1;
-            } else if (match[1] === '-') { // e.g., -x
+            } else if (match[1] === '-') {
                 a = -1;
             }
 
-            // Adjust b based on operator (e.g., if "2x - 5 > 10", b is -5)
             if (opSign === '-') {
                 b = -b;
             }
@@ -533,7 +706,7 @@ const InequalitySolver = () => {
             
             return { result: solution, steps: stepByStep };
 
-        } else if (matchSimple) { // For simpler forms like "x > 5"
+        } else if (matchSimple) {
             const xVar = matchSimple[1];
             const operator = matchSimple[2];
             const value = parseFloat(matchSimple[3]);
@@ -597,7 +770,6 @@ const InequalitySolver = () => {
     );
 };
 
-// --- NEW COMPONENT: Root Simplifier ---
 const RootSimplifier = () => {
     const [numberToSimplify, setNumberToSimplify] = useState('72');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -670,7 +842,367 @@ const RootSimplifier = () => {
     );
 };
 
-// Main AlgebraCalculator Component
+const QuadraticSolver = () => {
+    const [a, setA] = useState('1');
+    const [b, setB] = useState('-5');
+    const [c, setC] = useState('6');
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const { result, steps } = useMemo(() => {
+        const aNum = parseFloat(a);
+        const bNum = parseFloat(b);
+        const cNum = parseFloat(c);
+        
+        if (isNaN(aNum) || isNaN(bNum) || isNaN(cNum) || aNum === 0) {
+            return { result: null, steps: '❌ กรุณาใส่ตัวเลขที่ถูกต้อง และ a ≠ 0' };
+        }
+        
+        return solveQuadratic(aNum, bNum, cNum);
+    }, [a, b, c]);
+
+    const formatSolution = (solutions: { real: number[], complex?: string[] }) => {
+        if (solutions.complex) {
+            return solutions.complex.join(', ');
+        }
+        return solutions.real.map(x => Number.isInteger(x) ? x.toString() : x.toFixed(4)).join(', ');
+    };
+
+    return (
+        <>
+            <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                    <div>
+                        <Label htmlFor="quad-a">ค่า a</Label>
+                        <Input 
+                            id="quad-a" 
+                            type="number" 
+                            value={a} 
+                            onChange={e => setA(e.target.value)}
+                            placeholder="สัมประสิทธิ์ของ x²"
+                        />
+                    </div>
+                    <div>
+                        <Label htmlFor="quad-b">ค่า b</Label>
+                        <Input 
+                            id="quad-b" 
+                            type="number" 
+                            value={b} 
+                            onChange={e => setB(e.target.value)}
+                            placeholder="สัมประสิทธิ์ของ x"
+                        />
+                    </div>
+                    <div>
+                        <Label htmlFor="quad-c">ค่า c</Label>
+                        <Input 
+                            id="quad-c" 
+                            type="number" 
+                            value={c} 
+                            onChange={e => setC(e.target.value)}
+                            placeholder="ค่าคงที่"
+                        />
+                    </div>
+                </div>
+                
+                <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <p className="text-lg font-mono">
+                        {a}x² {parseFloat(b) >= 0 ? '+' : ''} {b}x {parseFloat(c) >= 0 ? '+' : ''} {c} = 0
+                    </p>
+                </div>
+            </div>
+            
+            {result && (
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-4 space-y-4"
+                >
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border">
+                        <div className="flex justify-between items-center mb-3">
+                            <h4 className="font-semibold text-lg">ผลลัพธ์:</h4>
+                            <Button variant="outline" size="sm" onClick={() => setIsModalOpen(true)}>
+                                <HelpCircle className="mr-2 h-4 w-4"/>ดูวิธีทำ
+                            </Button>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                                <p className="text-sm text-muted-foreground mb-1">Discriminant (Δ)</p>
+                                <p className={`text-2xl font-bold ${result.discriminant > 0 ? 'text-green-600' : result.discriminant === 0 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                    {result.discriminant}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    {result.discriminant > 0 ? '2 คำตอบจริง' : result.discriminant === 0 ? '1 คำตอบซ้ำ' : 'คำตอบเชิงซ้อน'}
+                                </p>
+                            </div>
+                            
+                            <div className="text-center p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                                <p className="text-sm text-muted-foreground mb-1">คำตอบ</p>
+                                <p className="text-xl font-bold text-indigo-600 dark:text-indigo-400 font-mono">
+                                    x = {formatSolution(result.solutions)}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+            
+            <CalculationStepsModal 
+                isOpen={isModalOpen} 
+                onClose={() => setIsModalOpen(false)} 
+                title="การแก้สมการกำลังสอง" 
+                description="ขั้นตอนการใช้สูตร Quadratic Formula" 
+                steps={steps} 
+            />
+        </>
+    );
+};
+
+const LogExpCalculator = () => {
+    const [mode, setMode] = useState<'log' | 'exp'>('log');
+    const [base, setBase] = useState('10');
+    const [value, setValue] = useState('100');
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const { result, steps } = useMemo(() => {
+        const baseNum = parseFloat(base);
+        const valueNum = parseFloat(value);
+        
+        if (isNaN(baseNum) || isNaN(valueNum)) {
+            return { result: null, steps: '❌ กรุณาใส่ตัวเลขที่ถูกต้อง' };
+        }
+        
+        if (mode === 'log') {
+            const { result: logResult, steps: logSteps } = calculateLog(baseNum, valueNum);
+            return { result: logResult, steps: logSteps };
+        } else {
+            const { result: expResult, steps: expSteps } = solveExponential(baseNum, valueNum);
+            return { result: expResult, steps: expSteps };
+        }
+    }, [mode, base, value]);
+
+    return (
+        <>
+            <div className="space-y-4">
+                <div>
+                    <Label>เลือกประเภทการคำนวณ</Label>
+                    <Select value={mode} onValueChange={(v) => setMode(v as 'log' | 'exp')}>
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="log">Logarithm (log)</SelectItem>
+                            <SelectItem value="exp">Exponential (aˣ = b)</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <Label htmlFor="log-base">ฐาน {mode === 'log' ? '(base)' : '(a)'}</Label>
+                        <Input 
+                            id="log-base" 
+                            type="number" 
+                            value={base} 
+                            onChange={e => setBase(e.target.value)}
+                            placeholder="เช่น 10, 2, e"
+                        />
+                    </div>
+                    <div>
+                        <Label htmlFor="log-value">
+                            {mode === 'log' ? 'ค่าที่ต้องการหา log' : 'ค่าที่เท่ากับ (b)'}
+                        </Label>
+                        <Input 
+                            id="log-value" 
+                            type="number" 
+                            value={value} 
+                            onChange={e => setValue(e.target.value)}
+                            placeholder="เช่น 100"
+                        />
+                    </div>
+                </div>
+                
+                <div className="text-center p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                    <p className="text-lg font-mono">
+                        {mode === 'log' 
+                            ? `log₍${base}₎(${value}) = ?`
+                            : `${base}ˣ = ${value}, x = ?`
+                        }
+                    </p>
+                </div>
+            </div>
+            
+            {result !== null && !isNaN(result) && (
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border"
+                >
+                    <div className="flex justify-between items-center mb-3">
+                        <h4 className="font-semibold text-lg">ผลลัพธ์:</h4>
+                        <Button variant="outline" size="sm" onClick={() => setIsModalOpen(true)}>
+                            <HelpCircle className="mr-2 h-4 w-4"/>ดูวิธีทำ
+                        </Button>
+                    </div>
+                    
+                    <div className="text-center p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg">
+                        <p className="text-sm text-muted-foreground mb-1">
+                            {mode === 'log' ? 'ค่า Logarithm' : 'ค่า x'}
+                        </p>
+                        <p className="text-3xl font-bold text-cyan-600 dark:text-cyan-400 font-mono">
+                            {result.toFixed(6)}
+                        </p>
+                    </div>
+                    
+                    {mode === 'log' && (
+                        <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                            <p className="text-sm text-muted-foreground mb-2">การแสดงผล:</p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-center">
+                                <div className="p-2 bg-white dark:bg-gray-900 rounded border">
+                                    <p className="text-xs text-muted-foreground">ฐาน</p>
+                                    <p className="font-mono font-bold">{base}</p>
+                                </div>
+                                <div className="p-2 bg-white dark:bg-gray-900 rounded border">
+                                    <p className="text-xs text-muted-foreground">ยกกำลัง</p>
+                                    <p className="font-mono font-bold">{result.toFixed(4)}</p>
+                                </div>
+                                <div className="p-2 bg-white dark:bg-gray-900 rounded border">
+                                    <p className="text-xs text-muted-foreground">ได้ผลลัพธ์</p>
+                                    <p className="font-mono font-bold">{value}</p>
+                                </div>
+                            </div>
+                            <p className="text-xs text-center mt-2 text-muted-foreground">
+                                {base}<sup>{result.toFixed(4)}</sup> ≈ {value}
+                            </p>
+                        </div>
+                    )}
+                </motion.div>
+            )}
+            
+            <CalculationStepsModal 
+                isOpen={isModalOpen} 
+                onClose={() => setIsModalOpen(false)} 
+                title={mode === 'log' ? 'การคำนวณ Logarithm' : 'การแก้สมการ Exponential'} 
+                description="ขั้นตอนการคำนวณอย่างละเอียด" 
+                steps={steps} 
+            />
+        </>
+    );
+};
+
+const PermCombCalculator = () => {
+    const [n, setN] = useState('10');
+    const [r, setR] = useState('3');
+    const [mode, setMode] = useState<'perm' | 'comb'>('comb');
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const { result, steps } = useMemo(() => {
+        const nNum = parseInt(n);
+        const rNum = parseInt(r);
+        
+        if (isNaN(nNum) || isNaN(rNum)) {
+            return { result: null, steps: '❌ กรุณาใส่จำนวนเต็มที่ถูกต้อง' };
+        }
+        
+        if (mode === 'perm') {
+            return permutation(nNum, rNum);
+        } else {
+            return combination(nNum, rNum);
+        }
+    }, [n, r, mode]);
+
+    return (
+        <>
+            <div className="space-y-4">
+                <div>
+                    <Label>เลือกประเภทการคำนวณ</Label>
+                    <Select value={mode} onValueChange={(v) => setMode(v as 'perm' | 'comb')}>
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="perm">Permutation (วิธีจัดเรียง)</SelectItem>
+                            <SelectItem value="comb">Combination (วิธีเลือก)</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <Label htmlFor="perm-n">จำนวนทั้งหมด (n)</Label>
+                        <Input 
+                            id="perm-n" 
+                            type="number" 
+                            value={n} 
+                            onChange={e => setN(e.target.value)}
+                            placeholder="จำนวนสิ่งทั้งหมด"
+                        />
+                    </div>
+                    <div>
+                        <Label htmlFor="perm-r">จำนวนที่เลือก (r)</Label>
+                        <Input 
+                            id="perm-r" 
+                            type="number" 
+                            value={r} 
+                            onChange={e => setR(e.target.value)}
+                            placeholder="จำนวนที่ต้องการเลือก"
+                        />
+                    </div>
+                </div>
+                
+                <div className="text-center p-3 bg-rose-50 dark:bg-rose-900/20 rounded-lg">
+                    <p className="text-lg font-mono">
+                        {mode === 'perm' ? 'P' : 'C'}({n}, {r}) = ?
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        {mode === 'perm' 
+                            ? `วิธีจัดเรียง ${r} สิ่งจาก ${n} สิ่ง (คำนึงถึงลำดับ)`
+                            : `วิธีเลือก ${r} สิ่งจาก ${n} สิ่ง (ไม่คำนึงถึงลำดับ)`
+                        }
+                    </p>
+                </div>
+            </div>
+            
+            {result && result.toString() !== '0' && (
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-4 space-y-4"
+                >
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border">
+                        <div className="flex justify-between items-center mb-3">
+                            <h4 className="font-semibold text-lg">ผลลัพธ์:</h4>
+                            <Button variant="outline" size="sm" onClick={() => setIsModalOpen(true)}>
+                                <HelpCircle className="mr-2 h-4 w-4"/>ดูวิธีทำ
+                            </Button>
+                        </div>
+                        
+                        <div className="text-center p-4 bg-rose-50 dark:bg-rose-900/20 rounded-lg">
+                            <p className="text-sm text-muted-foreground mb-1">จำนวนวิธี</p>
+                            <p className="text-3xl font-bold text-rose-600 dark:text-rose-400">
+                                {result.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                                {mode === 'perm' ? 'วิธีจัดเรียง' : 'วิธีเลือก'}
+                            </p>
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+            
+            <CalculationStepsModal 
+                isOpen={isModalOpen} 
+                onClose={() => setIsModalOpen(false)} 
+                title={mode === 'perm' ? 'การคำนวณ Permutation' : 'การคำนวณ Combination'} 
+                description="ขั้นตอนการคำนวณด้วยสูตร factorial" 
+                steps={steps} 
+            />
+        </>
+    );
+};
+
+
+// --- MAIN COMPONENT ---
+
 const AlgebraCalculator = () => {
     return (
         <div className="w-full max-w-4xl mx-auto p-4">
@@ -681,82 +1213,61 @@ const AlgebraCalculator = () => {
                         เครื่องคำนวณพีชคณิต
                     </CardTitle>
                     <CardDescription className="text-base">
-                        เครื่องมือสำหรับทฤษฎีจำนวน การตรวจสอบจำนวนเฉพาะ และการดำเนินการเซต
+                        เครื่องมือสำหรับทฤษฎีจำนวน การแก้สมการ และอื่นๆ
                     </CardDescription>
                 </CardHeader>
                 
                 <CardContent className="p-6">
                     <Tabs defaultValue="gcd-lcm" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 mb-6 h-auto"> {/* Adjusted grid-cols for more tabs */}
-                            <TabsTrigger value="gcd-lcm" className="flex items-center gap-2">
-                                <KeyRound className="h-4 w-4" />
-                                <span className="hidden sm:inline">ห.ร.ม. / ค.ร.น.</span>
-                                <span className="sm:hidden">GCD/LCM</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="prime" className="flex items-center gap-2">
-                                <HelpCircle className="h-4 w-4" />
-                                <span className="hidden sm:inline">จำนวนเฉพาะ</span>
-                                <span className="sm:hidden">Prime</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="sets" className="flex items-center gap-2">
-                                <Combine className="h-4 w-4" />
-                                <span className="hidden sm:inline">การดำเนินการเซต</span>
-                                <span className="sm:hidden">Sets</span>
-                            </TabsTrigger>
-                            {/* NEW TABS */}
-                            <TabsTrigger value="inequality" className="flex items-center gap-2">
-                                <DivideSquare className="h-4 w-4" />
-                                <span className="hidden sm:inline">อสมการเชิงเส้น</span>
-                                <span className="sm:hidden">Inequality</span>
-                            </TabsTrigger>
-                            {/* Corrected icon usage: changed SquareRoot to Radical */}
-                            <TabsTrigger value="roots" className="flex items-center gap-2">
-                                <Radical className="h-4 w-4" />
-                                <span className="hidden sm:inline">การถอดราก</span>
-                                <span className="sm:hidden">Roots</span>
-                            </TabsTrigger>
+                        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 mb-6 h-auto">
+                            <TabsTrigger value="gcd-lcm" className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> <span className="hidden sm:inline">ห.ร.ม./ค.ร.น.</span><span className="sm:hidden">ห.ร.ม./ค.ร.น.</span></TabsTrigger>
+                            <TabsTrigger value="prime" className="flex items-center gap-2"><HelpCircle className="h-4 w-4" /> <span className="hidden sm:inline">จำนวนเฉพาะ</span><span className="sm:hidden">จำนวนเฉพาะ</span></TabsTrigger>
+                            <TabsTrigger value="sets" className="flex items-center gap-2"><Combine className="h-4 w-4" /> <span className="hidden sm:inline">เซต</span><span className="sm:hidden">เซต</span></TabsTrigger>
+                            <TabsTrigger value="inequality" className="flex items-center gap-2"><DivideSquare className="h-4 w-4" /> <span className="hidden sm:inline">อสมการ</span><span className="sm:hidden">อสมการ</span></TabsTrigger>
+                            <TabsTrigger value="roots" className="flex items-center gap-2"><Radical className="h-4 w-4" /> <span className="hidden sm:inline">ราก</span><span className="sm:hidden">ราก</span></TabsTrigger>
+                            <TabsTrigger value="quadratic" className="flex items-center gap-2"><Superscript className="h-4 w-4" /> <span className="hidden sm:inline">กำลังสอง</span><span className="sm:hidden">กำลังสอง</span></TabsTrigger>
+                            <TabsTrigger value="log-exp" className="flex items-center gap-2"><FunctionSquare className="h-4 w-4" /> <span className="hidden sm:inline">Log/Exp</span><span className="sm:hidden">Log/Exp</span></TabsTrigger>
+                            <TabsTrigger value="perm-comb" className="flex items-center gap-2"><Users className="h-4 w-4" /> <span className="hidden sm:inline">เรียง/เลือก</span><span className="sm:hidden">เรียง/เลือก</span></TabsTrigger>
                         </TabsList>
                         
                         <TabsContent value="gcd-lcm" className="space-y-4">
-                            <div className="text-center mb-4">
-                                <h3 className="text-xl font-semibold mb-2">หาห.ร.ม. และ ค.ร.น.</h3>
-                                <p className="text-muted-foreground">ใส่จำนวนเต็มบวกสองจำนวนเพื่อหาตัวหารร่วมมากและตัวคูณร่วมน้อย</p>
-                            </div>
+                            <div className="text-center mb-4"><h3 className="text-xl font-semibold mb-2">หาห.ร.ม. และ ค.ร.น.</h3><p className="text-muted-foreground">ใส่จำนวนเต็มบวกสองจำนวนเพื่อหาตัวหารร่วมมากและตัวคูณร่วมน้อย</p></div>
                             <GcdLcmTool />
                         </TabsContent>
                         
                         <TabsContent value="prime" className="space-y-4">
-                            <div className="text-center mb-4">
-                                <h3 className="text-xl font-semibold mb-2">ตรวจสอบจำนวนเฉพาะ</h3>
-                                <p className="text-muted-foreground">ใส่จำนวนเต็มบวกเพื่อตรวจสอบว่าเป็นจำนวนเฉพาะหรือไม่ และแยกตัวประกอบเฉพาะ</p>
-                            </div>
+                            <div className="text-center mb-4"><h3 className="text-xl font-semibold mb-2">ตรวจสอบจำนวนเฉพาะ</h3><p className="text-muted-foreground">ใส่จำนวนเต็มบวกเพื่อตรวจสอบและแยกตัวประกอบ</p></div>
                             <PrimeTool />
                         </TabsContent>
                         
                         <TabsContent value="sets" className="space-y-4">
-                            <div className="text-center mb-4">
-                                <h3 className="text-xl font-semibold mb-2">การดำเนินการเซต</h3>
-                                <p className="text-muted-foreground">ใส่สมาชิกของเซตแล้วเลือกการดำเนินการที่ต้องการ (คั่นด้วยเครื่องหมายจุลภาค)</p>
-                            </div>
+                             <div className="text-center mb-4"><h3 className="text-xl font-semibold mb-2">การดำเนินการเซต</h3><p className="text-muted-foreground">ใส่สมาชิกของเซตแล้วเลือกการดำเนินการ (คั่นด้วยจุลภาค)</p></div>
                             <SetTool />
                         </TabsContent>
 
-                        {/* NEW TAB CONTENT: Linear Inequality Solver */}
                         <TabsContent value="inequality" className="space-y-4">
-                            <div className="text-center mb-4">
-                                <h3 className="text-xl font-semibold mb-2">แก้อสมการเชิงเส้น</h3>
-                                <p className="text-muted-foreground">กรอกอสมการเชิงเส้นเพื่อหาเซตคำตอบ</p>
-                            </div>
+                            <div className="text-center mb-4"><h3 className="text-xl font-semibold mb-2">แก้อสมการเชิงเส้น</h3><p className="text-muted-foreground">กรอกอสมการเชิงเส้นเพื่อหาเซตคำตอบ</p></div>
                             <InequalitySolver />
                         </TabsContent>
 
-                        {/* NEW TAB CONTENT: Root Simplifier */}
                         <TabsContent value="roots" className="space-y-4">
-                            <div className="text-center mb-4">
-                                <h3 className="text-xl font-semibold mb-2">ถอดรากที่สอง</h3>
-                                <p className="text-muted-foreground">ใส่จำนวนเต็มบวกเพื่อถอดรากที่สองให้อยู่ในรูปอย่างง่าย</p>
-                            </div>
+                            <div className="text-center mb-4"><h3 className="text-xl font-semibold mb-2">ถอดรากที่สอง</h3><p className="text-muted-foreground">ใส่จำนวนเต็มบวกเพื่อถอดรากที่สองให้อยู่ในรูปอย่างง่าย</p></div>
                             <RootSimplifier />
+                        </TabsContent>
+
+                        <TabsContent value="quadratic" className="space-y-4">
+                            <div className="text-center mb-4"><h3 className="text-xl font-semibold mb-2">แก้สมการกำลังสอง</h3><p className="text-muted-foreground">ใช้สูตร ax² + bx + c = 0</p></div>
+                            <QuadraticSolver />
+                        </TabsContent>
+
+                        <TabsContent value="log-exp" className="space-y-4">
+                             <div className="text-center mb-4"><h3 className="text-xl font-semibold mb-2">คำนวณ Logarithm & Exponential</h3><p className="text-muted-foreground">หาค่าลอการิทึมหรือแก้สมการเลขชี้กำลัง</p></div>
+                            <LogExpCalculator />
+                        </TabsContent>
+
+                        <TabsContent value="perm-comb" className="space-y-4">
+                             <div className="text-center mb-4"><h3 className="text-xl font-semibold mb-2">คำนวณวิธีเรียงสับเปลี่ยนและวิธีเลือก</h3><p className="text-muted-foreground">หาจำนวนวิธีในการจัดเรียงหรือเลือกสิ่งของ</p></div>
+                            <PermCombCalculator />
                         </TabsContent>
                     </Tabs>
                 </CardContent>

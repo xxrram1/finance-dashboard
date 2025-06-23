@@ -1,734 +1,494 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HelpCircle, Calculator, Info, BookOpen, X, ChevronRight } from 'lucide-react';
+import {
+    BookOpen, X, Copy, Layers, Calculator, Share2, Trash2, Zap, Target,
+    Maximize2, TrendingUp, BarChart3, AlertTriangle, CheckCircle, HelpCircle, RefreshCw
+} from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { create, all } from 'mathjs';
+import Latex from 'react-latex-next';
+import 'katex/dist/katex.min.css';
 
-type Shape = 'cone' | 'cylinder' | 'sphere' | 'cube' | 'pyramid';
+// --- MATH.JS CONFIGURATION ---
+const math = create(all, { number: 'BigNumber', precision: 64 });
 
-// Modal Component
-const CalculationStepsModal = ({ isOpen, onClose, title, steps }: {
-  isOpen: boolean;
-  onClose: () => void;
-  title: string;
-  steps: string;
-}) => {
-  if (!isOpen) return null;
+// --- TYPE DEFINITIONS ---
+type Shape = 'cone' | 'cylinder' | 'sphere' | 'cube' | 'pyramid' | 'prism' | 'torus' | 'hemisphere' | 'frustum';
+type InputField = { key: string; name: string; };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
-      >
-        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-700">
-          <div className="flex items-center space-x-3">
-            <BookOpen className="h-6 w-6 text-blue-600" />
-            <div>
-              <h2 className="text-xl font-bold">{title}</h2>
-              <p className="text-sm text-muted-foreground">สูตรและขั้นตอนการคำนวณแบบละเอียด</p>
-            </div>
-          </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-100px)]">
-          <div 
-            className="prose prose-slate dark:prose-invert max-w-none"
-            dangerouslySetInnerHTML={{ 
-              __html: steps.replace(/\$\$(.*?)\$\$/g, '<span class="inline-block px-2 py-1 bg-blue-100 dark:bg-blue-900/30 rounded text-blue-800 dark:text-blue-200 font-mono text-sm">$1</span>')
-                          .replace(/\$(.*?)\$/g, '<span class="inline-block px-1 bg-slate-100 dark:bg-slate-800 rounded font-mono text-sm">$1</span>')
-                          .replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-600 dark:text-blue-400">$1</strong>')
-                          .replace(/###\s*(.*)/g, '<h3 class="text-lg font-bold mt-6 mb-3 text-slate-800 dark:text-slate-200 flex items-center"><span class="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">$1</span></h3>')
-                          .replace(/\n/g, '<br>')
-            }}
-          />
-        </div>
-      </motion.div>
-    </div>
-  );
+// --- SVG COMPONENTS ---
+const ConeSVG = ({ r, h }: { r?: string; h?: string }) => ( <motion.svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-xl" initial={{ opacity: 0}} animate={{ opacity: 1}}><defs><linearGradient id="coneGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" className="stop-blue-200" /><stop offset="50%" className="stop-blue-400" /><stop offset="100%" className="stop-blue-600" /></linearGradient></defs><polygon points="60,15 25,95 95,95" fill="url(#coneGrad)" stroke="#1e40af" strokeWidth="2.5" /><ellipse cx="60" cy="95" rx="35" ry="10" fill="#3b82f6" stroke="#1d4ed8" strokeWidth="2" /><line x1="25" y1="95" x2="95" y2="95" stroke="#64748b" strokeDasharray="4,3" strokeWidth="1.5"/><text x="58" y="88" textAnchor="middle" className="text-sm fill-slate-700 font-bold">{r ? `r=${r}` : 'r'}</text><line x1="60" y1="15" x2="60" y2="95" stroke="#64748b" strokeDasharray="4,3" strokeWidth="1.5"/><text x="70" y="55" className="text-sm fill-slate-700 font-bold">{h ? `h=${h}` : 'h'}</text></motion.svg>);
+const CylinderSVG = ({ r, h }: { r?: string; h?: string }) => ( <motion.svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-xl" initial={{ opacity: 0}} animate={{ opacity: 1}}><defs><linearGradient id="cylGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" className="stop-green-200" /><stop offset="50%" className="stop-green-400" /><stop offset="100%" className="stop-green-600" /></linearGradient></defs><ellipse cx="60" cy="25" rx="32" ry="10" fill="#22c55e" stroke="#16a34a" strokeWidth="2.5"/><rect x="28" y="25" width="64" height="60" fill="url(#cylGrad)" stroke="#16a34a" strokeWidth="2.5"/><ellipse cx="60" cy="85" rx="32" ry="10" fill="#16a34a" stroke="#15803d" strokeWidth="2.5"/><line x1="60" y1="25" x2="60" y2="85" stroke="#64748b" strokeDasharray="4,3" strokeWidth="1.5"/><text x="72" y="55" className="text-sm fill-slate-700 font-bold">{h ? `h=${h}` : 'h'}</text><line x1="60" y1="85" x2="92" y2="85" stroke="#64748b" strokeDasharray="4,3" strokeWidth="1.5"/><text x="76" y="88" className="text-sm fill-slate-700 font-bold">{r ? `r=${r}` : 'r'}</text></motion.svg>);
+const SphereSVG = ({ r }: { r?: string }) => ( <motion.svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-xl" initial={{ opacity: 0}} animate={{ opacity: 1}}><defs><radialGradient id="sphereGrad" cx="30%" cy="30%"><stop offset="0%" className="stop-purple-200" /><stop offset="40%" className="stop-purple-400" /><stop offset="100%" className="stop-purple-700" /></radialGradient></defs><circle cx="60" cy="60" r="38" fill="url(#sphereGrad)" stroke="#7c3aed" strokeWidth="2.5" /><line x1="60" y1="60" x2="98" y2="60" stroke="#fff" strokeDasharray="4,3" strokeWidth="1.5"/><text x="79" y="55" className="text-sm fill-white font-bold">{r ? `r=${r}` : 'r'}</text></motion.svg>);
+const CubeSVG = ({ a }: { a?: string }) => ( <motion.svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-xl" initial={{ opacity: 0}} animate={{ opacity: 1}}><defs><linearGradient id="cubeGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" className="stop-red-300" /><stop offset="100%" className="stop-red-500" /></linearGradient></defs><rect x="30" y="40" width="60" height="60" fill="url(#cubeGrad)" stroke="#c2410c" strokeWidth="2.5" /><polygon points="30,40 50,20 110,20 90,40" fill="#fb923c" stroke="#c2410c" strokeWidth="2.5"/><polygon points="90,40 110,20 110,80 90,100" fill="#f97316" stroke="#c2410c" strokeWidth="2.5"/><text x="55" y="75" className="text-sm fill-white font-bold">{a ? `a=${a}` : 'a'}</text></motion.svg>);
+const PyramidSVG = ({ b, h }: { b?: string; h?: string }) => ( <motion.svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-xl" initial={{ opacity: 0}} animate={{ opacity: 1}}><defs><linearGradient id="pyramidGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" className="stop-yellow-200" /><stop offset="100%" className="stop-yellow-500" /></linearGradient></defs><polygon points="60,15 20,100 100,100" fill="url(#pyramidGrad)" stroke="#ca8a04" strokeWidth="2" /><polygon points="60,15 100,100 80,105" fill="#facc15" stroke="#ca8a04" strokeWidth="2"/><polygon points="20,100 100,100 80,105 0,105" fill="#eab308" stroke="#ca8a04" strokeWidth="2"/><line x1="60" y1="15" x2="60" y2="102" stroke="#4b5563" strokeDasharray="4,3" strokeWidth="1.5"/><text x="65" y="60" className="text-sm fill-slate-800 font-bold">{h ? `h=${h}` : 'h'}</text><line x1="20" y1="100" x2="100" y2="100" stroke="#4b5563" strokeDasharray="4,3" strokeWidth="1.5"/><text x="55" y="112" className="text-sm fill-slate-800 font-bold">{b ? `b=${b}` : 'b'}</text></motion.svg>);
+const PrismSVG = ({ w, d, h }: { w?: string, d?: string, h?: string }) => ( <motion.svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-xl" initial={{ opacity: 0}} animate={{ opacity: 1}}><defs><linearGradient id="prismGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" className="stop-teal-300" /><stop offset="100%" className="stop-teal-500" /></linearGradient></defs><rect x="25" y="45" width="70" height="50" fill="url(#prismGrad)" stroke="#0d9488" strokeWidth="2.5"/><polygon points="25,45 45,25 115,25 95,45" fill="#2dd4bf" stroke="#0d9488" strokeWidth="2.5"/><polygon points="95,45 115,25 115,75 95,95" fill="#14b8a6" stroke="#0d9488" strokeWidth="2.5"/><text x="55" y="75" className="text-xs fill-white font-bold">{h ? `h=${h}` : 'h'}</text><text x="65" y="40" className="text-xs fill-slate-800 font-bold">{w ? `w=${w}` : 'w'}</text><text x="100" y="65" className="text-xs fill-white font-bold">{d ? `d=${d}` : 'd'}</text></motion.svg>);
+const TorusSVG = ({ R, r }: { R?: string, r?: string }) => ( <motion.svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-xl" initial={{ opacity: 0}} animate={{ opacity: 1}}><defs><radialGradient id="torusGrad" cx="50%" cy="50%" r="50%" fx="30%" fy="30%"><stop offset="0%" className="stop-pink-300" /><stop offset="100%" className="stop-pink-600" /></radialGradient></defs><circle cx="60" cy="60" r="40" fill="url(#torusGrad)" stroke="#be185d" strokeWidth="2.5" /><circle cx="60" cy="60" r="18" fill="white" className="dark:fill-slate-900"/><line x1="60" y1="60" x2="100" y2="60" stroke="#4b5563" strokeDasharray="3,2" strokeWidth="1.5"/><text x="80" y="56" className="text-xs fill-slate-800 dark:fill-slate-200 font-bold">{R ? `R=${R}` : 'R'}</text><line x1="78" y1="60" x2="78" y2="78" stroke="#4b5563" strokeDasharray="3,2" strokeWidth="1.5"/><text x="68" y="75" className="text-xs fill-slate-800 dark:fill-slate-200 font-bold">{r ? `r=${r}` : 'r'}</text></motion.svg>);
+const HemisphereSVG = ({ r }: { r?: string }) => ( <motion.svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-xl" initial={{ opacity: 0}} animate={{ opacity: 1}}><defs><radialGradient id="hemiGrad" cx="40%" cy="40%"><stop offset="0%" className="stop-indigo-200" /><stop offset="100%" className="stop-indigo-500" /></radialGradient></defs><path d="M25,95 A50,40 0 0,1 95,95" fill="url(#hemiGrad)" stroke="#4338ca" strokeWidth="2.5" /><ellipse cx="60" cy="95" rx="35" ry="10" fill="#6366f1" stroke="#4338ca" strokeWidth="2"/><line x1="60" y1="95" x2="95" y2="95" stroke="#4b5563" strokeDasharray="4,3" strokeWidth="1.5"/><text x="75" y="90" className="text-sm fill-slate-800 font-bold">{r ? `r=${r}` : 'r'}</text></motion.svg>);
+const FrustumSVG = ({ r1, r2, h }: { r1?: string, r2?: string, h?: string }) => ( <motion.svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-xl" initial={{ opacity: 0}} animate={{ opacity: 1}}><defs><linearGradient id="frustumGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" className="stop-cyan-200" /><stop offset="100%" className="stop-cyan-500" /></linearGradient></defs><ellipse cx="60" cy="25" rx="20" ry="6" fill="#67e8f9" stroke="#0891b2" strokeWidth="2"/><polygon points="40,25 25,95 95,95 80,25" fill="url(#frustumGrad)" stroke="#0891b2" strokeWidth="2.5" /><ellipse cx="60" cy="95" rx="35" ry="10" fill="#22d3ee" stroke="#0891b2" strokeWidth="2"/><line x1="60" y1="25" x2="60" y2="95" stroke="#4b5563" strokeDasharray="4,3" strokeWidth="1.5"/><text x="65" y="60" className="text-sm fill-slate-700 font-bold">{h ? `h=${h}` : 'h'}</text><line x1="60" y1="25" x2="80" y2="25" stroke="#4b5563" strokeDasharray="4,3" strokeWidth="1.5"/><text x="70" y="22" className="text-sm fill-slate-700 font-bold">{r1 ? `r1=${r1}` : 'r1'}</text><line x1="60" y1="95" x2="95" y2="95" stroke="#4b5563" strokeDasharray="4,3" strokeWidth="1.5"/><text x="75" y="92" className="text-sm fill-slate-700 font-bold">{r2 ? `r2=${r2}` : 'r2'}</text></motion.svg>);
+
+// --- SHAPE CONFIGURATION (with full LaTeX steps) ---
+const shapeConfig: { [key in Shape]: { name: string; icon: React.ElementType; inputs: InputField[]; svg: React.FC<any>; calculate: (values: any) => any; } } = {
+    cone: {
+        name: 'กรวย', icon: Zap,
+        inputs: [{ key: 'r', name: 'รัศมี (r)' }, { key: 'h', name: 'ความสูง (h)' }],
+        svg: ConeSVG,
+        calculate: ({ r, h }) => {
+            const R = parseFloat(r), H = parseFloat(h);
+            const emptyResult = { volume: 0, lateralSurfaceArea: 0, totalSurfaceArea: 0, steps: "กรุณาใส่ค่ารัศมีและความสูงเป็นบวก" };
+            if (isNaN(R) || isNaN(H) || R <= 0 || H <= 0) return emptyResult;
+            const slantHeight = Math.sqrt(R * R + H * H);
+            const volume = (1 / 3) * Math.PI * R * R * H;
+            const lateralSurfaceArea = Math.PI * R * slantHeight;
+            const totalSurfaceArea = Math.PI * R * (R + slantHeight);
+            const steps = `### 1. คำนวณปริมาตร (Volume)
+ใช้สูตร: $$V = \\frac{1}{3} \\pi r^2 h$$
+แทนค่า: $$V = \\frac{1}{3} \\pi (${R}^2) (${H})$$
+**ผลลัพธ์: V ≈ ${volume.toFixed(4)}**
+
+### 2. คำนวณพื้นที่ผิวข้าง (Lateral Surface Area)
+ก่อนอื่น หาความสูงเอียง (l): $$l = \\sqrt{r^2 + h^2}$$
+$$l = \\sqrt{${R}^2 + ${H}^2} \\approx ${slantHeight.toFixed(4)}$$
+ใช้สูตร: $$A_{ข้าง} = \\pi r l$$
+แทนค่า: $$A_{ข้าง} = \\pi (${R}) (${slantHeight.toFixed(4)})$$
+**ผลลัพธ์: A ≈ ${lateralSurfaceArea.toFixed(4)}**
+
+### 3. คำนวณพื้นที่ผิวทั้งหมด (Total Surface Area)
+ใช้สูตร: $$A_{รวม} = A_{ข้าง} + A_{ฐาน} = \\pi r l + \\pi r^2$$
+แทนค่า: $$A_{รวม} \\approx ${lateralSurfaceArea.toFixed(4)} + \\pi (${R}^2)$$
+**ผลลัพธ์: A ≈ ${totalSurfaceArea.toFixed(4)}**`;
+            return { volume, lateralSurfaceArea, totalSurfaceArea, steps };
+        }
+    },
+    cylinder: {
+        name: 'ทรงกระบอก', icon: Layers,
+        inputs: [{ key: 'r', name: 'รัศมี (r)' }, { key: 'h', name: 'ความสูง (h)' }],
+        svg: CylinderSVG,
+        calculate: ({ r, h }) => {
+            const R = parseFloat(r), H = parseFloat(h);
+            const emptyResult = { volume: 0, lateralSurfaceArea: 0, totalSurfaceArea: 0, steps: "กรุณาใส่ค่ารัศมีและความสูงเป็นบวก" };
+            if (isNaN(R) || isNaN(H) || R <= 0 || H <= 0) return emptyResult;
+            const volume = Math.PI * R * R * H;
+            const lateralSurfaceArea = 2 * Math.PI * R * H;
+            const totalSurfaceArea = 2 * Math.PI * R * (R + H);
+            const steps = `### 1. คำนวณปริมาตร (Volume)
+ใช้สูตร: $$V = \\pi r^2 h$$
+แทนค่า: $$V = \\pi (${R}^2) (${H})$$
+**ผลลัพธ์: V ≈ ${volume.toFixed(4)}**
+### 2. คำนวณพื้นที่ผิวข้าง (Lateral Surface Area)
+ใช้สูตร: $$A_{ข้าง} = 2 \\pi r h$$
+แทนค่า: $$A_{ข้าง} = 2 \\pi (${R}) (${H})$$
+**ผลลัพธ์: A ≈ ${lateralSurfaceArea.toFixed(4)}**
+### 3. คำนวณพื้นที่ผิวทั้งหมด (Total Surface Area)
+ใช้สูตร: $$A_{รวม} = 2 \\pi r (r + h)$$
+แทนค่า: $$A_{รวม} = 2 \\pi (${R}) (${R} + ${H})$$
+**ผลลัพธ์: A ≈ ${totalSurfaceArea.toFixed(4)}**`;
+            return { volume, lateralSurfaceArea, totalSurfaceArea, steps };
+        }
+    },
+    sphere: {
+        name: 'ทรงกลม', icon: Target,
+        inputs: [{ key: 'r', name: 'รัศมี (r)' }],
+        svg: SphereSVG,
+        calculate: ({ r }) => {
+            const R = parseFloat(r);
+            const emptyResult = { volume: 0, lateralSurfaceArea: 0, totalSurfaceArea: 0, steps: "กรุณาใส่ค่ารัศมีเป็นบวก" };
+            if (isNaN(R) || R <= 0) return emptyResult;
+            const volume = (4 / 3) * Math.PI * Math.pow(R, 3);
+            const totalSurfaceArea = 4 * Math.PI * R * R;
+            const steps = `### 1. คำนวณปริมาตร (Volume)
+ใช้สูตร: $$V = \\frac{4}{3} \\pi r^3$$
+แทนค่า: $$V = \\frac{4}{3} \\pi (${R}^3)$$
+**ผลลัพธ์: V ≈ ${volume.toFixed(4)}**
+### 2. คำนวณพื้นที่ผิวทั้งหมด (Total Surface Area)
+สำหรับทรงกลม พื้นที่ผิวข้างจะเท่ากับพื้นที่ผิวทั้งหมด
+ใช้สูตร: $$A = 4 \\pi r^2$$
+แทนค่า: $$A = 4 \\pi (${R}^2)$$
+**ผลลัพธ์: A ≈ ${totalSurfaceArea.toFixed(4)}**`;
+            return { volume, lateralSurfaceArea: totalSurfaceArea, totalSurfaceArea, steps };
+        }
+    },
+    cube: {
+        name: 'ลูกบาศก์', icon: Maximize2,
+        inputs: [{ key: 'a', name: 'ความยาวด้าน (a)' }],
+        svg: CubeSVG,
+        calculate: ({ a }) => {
+            const A = parseFloat(a);
+            const emptyResult = { volume: 0, lateralSurfaceArea: 0, totalSurfaceArea: 0, steps: "กรุณาใส่ความยาวด้านเป็นบวก" };
+            if (isNaN(A) || A <= 0) return emptyResult;
+            const volume = Math.pow(A, 3);
+            const lateralSurfaceArea = 4 * A * A;
+            const totalSurfaceArea = 6 * A * A;
+            const steps = `### 1. คำนวณปริมาตร (Volume)
+ใช้สูตร: $$V = a^3$$
+แทนค่า: $$V = ${A}^3$$
+**ผลลัพธ์: V = ${volume.toFixed(4)}**
+### 2. คำนวณพื้นที่ผิวข้าง (Lateral Surface Area)
+คือพื้นที่ 4 ด้าน (ไม่รวมบน-ล่าง)
+ใช้สูตร: $$A_{ข้าง} = 4a^2$$
+แทนค่า: $$A_{ข้าง} = 4 \\times ${A}^2$$
+**ผลลัพธ์: A = ${lateralSurfaceArea.toFixed(4)}**
+### 3. คำนวณพื้นที่ผิวทั้งหมด (Total Surface Area)
+คือพื้นที่ 6 ด้าน
+ใช้สูตร: $$A_{รวม} = 6a^2$$
+แทนค่า: $$A_{รวม} = 6 \\times ${A}^2$$
+**ผลลัพธ์: A = ${totalSurfaceArea.toFixed(4)}**`;
+            return { volume, lateralSurfaceArea, totalSurfaceArea, steps };
+        }
+    },
+    pyramid: {
+        name: 'พีระมิดฐานสี่เหลี่ยม', icon: TrendingUp,
+        inputs: [{ key: 'b', name: 'ความยาวฐาน (b)' }, { key: 'h', name: 'ความสูง (h)' }],
+        svg: PyramidSVG,
+        calculate: ({ b, h }) => {
+            const B = parseFloat(b), H = parseFloat(h);
+            const emptyResult = { volume: 0, lateralSurfaceArea: 0, totalSurfaceArea: 0, steps: "กรุณาใส่ความยาวฐานและความสูงเป็นบวก" };
+            if (isNaN(B) || isNaN(H) || B <= 0 || H <= 0) return emptyResult;
+            const slantHeight = Math.sqrt(H * H + (B / 2) * (B / 2));
+            const volume = (1/3) * B * B * H;
+            const lateralSurfaceArea = 2 * B * slantHeight;
+            const totalSurfaceArea = (B * B) + lateralSurfaceArea;
+            const steps = `### 1. คำนวณปริมาตร (Volume)
+ใช้สูตร: $$V = \\frac{1}{3} b^2 h$$
+แทนค่า: $$V = \\frac{1}{3} (${B}^2) (${H})$$
+**ผลลัพธ์: V ≈ ${volume.toFixed(4)}**
+### 2. คำนวณพื้นที่ผิวข้าง (Lateral Surface Area)
+หาความสูงเอียง (l): $$l = \\sqrt{h^2 + (b/2)^2}$$
+$$l = \\sqrt{${H}^2 + (${B}/2)^2} \\approx ${slantHeight.toFixed(4)}$$
+ใช้สูตร: $$A_{ข้าง} = 2bl$$
+แทนค่า: $$A_{ข้าง} = 2(${B})(${slantHeight.toFixed(4)})$$
+**ผลลัพธ์: A ≈ ${lateralSurfaceArea.toFixed(4)}**
+### 3. คำนวณพื้นที่ผิวทั้งหมด (Total Surface Area)
+ใช้สูตร: $$A_{รวม} = b^2 + A_{ข้าง}$$
+แทนค่า: $$A_{รวม} = ${B}^2 + ${lateralSurfaceArea.toFixed(4)}$$
+**ผลลัพธ์: A ≈ ${totalSurfaceArea.toFixed(4)}**`;
+            return { volume, lateralSurfaceArea, totalSurfaceArea, steps };
+        }
+    },
+    prism: {
+        name: 'ปริซึมสี่เหลี่ยม', icon: BarChart3,
+        inputs: [{ key: 'w', name: 'ความกว้าง (w)' }, { key: 'd', name: 'ความลึก (d)' }, { key: 'h', name: 'ความสูง (h)' }],
+        svg: PrismSVG,
+        calculate: ({ w, d, h }) => {
+            const W = parseFloat(w), D = parseFloat(d), H = parseFloat(h);
+            const emptyResult = { volume: 0, lateralSurfaceArea: 0, totalSurfaceArea: 0, steps: "กรุณาใส่ค่าทั้งหมดเป็นบวก" };
+            if (isNaN(W) || isNaN(D) || isNaN(H) || W <= 0 || D <= 0 || H <= 0) return emptyResult;
+            const volume = W * D * H;
+            const lateralSurfaceArea = 2 * (W * H + D * H);
+            const totalSurfaceArea = 2 * (W*D + W*H + D*H);
+            const steps = `### 1. คำนวณปริมาตร (Volume)
+ใช้สูตร: $$V = w \\times d \\times h$$
+แทนค่า: $$V = ${W} \\times ${D} \\times ${H}$$
+**ผลลัพธ์: V = ${volume.toFixed(4)}**
+### 2. คำนวณพื้นที่ผิวข้าง (Lateral Surface Area)
+ใช้สูตร: $$A_{ข้าง} = 2(wh + dh)$$
+แทนค่า: $$A_{ข้าง} = 2((${W} \\times ${H}) + (${D} \\times ${H}))$$
+**ผลลัพธ์: A = ${lateralSurfaceArea.toFixed(4)}**
+### 3. คำนวณพื้นที่ผิวทั้งหมด (Total Surface Area)
+ใช้สูตร: $$A_{รวม} = 2(wd + wh + dh)$$
+แทนค่า: $$A_{รวม} = 2((${W} \\times ${D}) + (${W} \\times ${H}) + (${D} \\times ${H}))$$
+**ผลลัพธ์: A = ${totalSurfaceArea.toFixed(4)}**`;
+            return { volume, lateralSurfaceArea, totalSurfaceArea, steps };
+        }
+    },
+    torus: {
+        name: 'ทอรัส', icon: RefreshCw,
+        inputs: [{ key: 'R', name: 'รัศมีวงนอก (R)' }, { key: 'r', name: 'รัศมีวงใน (r)' }],
+        svg: TorusSVG,
+        calculate: ({ R, r }) => {
+            const majorR = parseFloat(R), minorR = parseFloat(r);
+            const emptyResult = { volume: 0, lateralSurfaceArea: 0, totalSurfaceArea: 0, steps: "รัศมีวงนอก (R) ต้องมากกว่ารัศมีวงใน (r)" };
+            if (isNaN(majorR) || isNaN(minorR) || majorR <= 0 || minorR <= 0 || majorR <= minorR) return emptyResult;
+            const volume = 2 * Math.pow(Math.PI, 2) * majorR * minorR * minorR;
+            const totalSurfaceArea = 4 * Math.pow(Math.PI, 2) * majorR * minorR;
+            const steps = `### 1. คำนวณปริมาตร (Volume)
+ใช้สูตร: $$V = 2\\pi^2Rr^2$$
+แทนค่า: $$V = 2\\pi^2(${majorR})(${minorR}^2)$$
+**ผลลัพธ์: V ≈ ${volume.toFixed(4)}**
+### 2. คำนวณพื้นที่ผิวทั้งหมด (Surface Area)
+สำหรับทอรัส พื้นที่ผิวข้างคือพื้นที่ผิวทั้งหมด
+ใช้สูตร: $$A = 4\\pi^2Rr$$
+แทนค่า: $$A = 4\\pi^2(${majorR})(${minorR})$$
+**ผลลัพธ์: A ≈ ${totalSurfaceArea.toFixed(4)}**`;
+            return { volume, lateralSurfaceArea: totalSurfaceArea, totalSurfaceArea, steps };
+        }
+    },
+    hemisphere: {
+        name: 'ครึ่งทรงกลม', icon: Target,
+        inputs: [{ key: 'r', name: 'รัศมี (r)' }],
+        svg: HemisphereSVG,
+        calculate: ({ r }) => {
+            const R = parseFloat(r);
+            const emptyResult = { volume: 0, lateralSurfaceArea: 0, totalSurfaceArea: 0, steps: "กรุณาใส่ค่ารัศมีเป็นบวก" };
+            if (isNaN(R) || R <= 0) return emptyResult;
+            const volume = (2 / 3) * Math.PI * Math.pow(R, 3);
+            const lateralSurfaceArea = 2 * Math.PI * R * R;
+            const totalSurfaceArea = 3 * Math.PI * R * R;
+            const steps = `### 1. คำนวณปริมาตร (Volume)
+ใช้สูตร: $$V = \\frac{2}{3} \\pi r^3$$
+แทนค่า: $$V = \\frac{2}{3} \\pi (${R}^3)$$
+**ผลลัพธ์: V ≈ ${volume.toFixed(4)}**
+### 2. คำนวณพื้นที่ผิวข้าง (Lateral Surface Area)
+คือพื้นที่ส่วนโค้ง
+ใช้สูตร: $$A_{ข้าง} = 2 \\pi r^2$$
+แทนค่า: $$A_{ข้าง} = 2 \\pi (${R}^2)$$
+**ผลลัพธ์: A ≈ ${lateralSurfaceArea.toFixed(4)}**
+### 3. คำนวณพื้นที่ผิวทั้งหมด (Total Surface Area)
+คือพื้นที่ส่วนโค้ง + พื้นที่ฐานวงกลม
+ใช้สูตร: $$A_{รวม} = 3 \\pi r^2$$
+แทนค่า: $$A_{รวม} = 3 \\pi (${R}^2)$$
+**ผลลัพธ์: A ≈ ${totalSurfaceArea.toFixed(4)}**`;
+            return { volume, lateralSurfaceArea, totalSurfaceArea, steps };
+        }
+    },
+    frustum: {
+        name: 'กรวยยอดตัด', icon: Zap,
+        inputs: [{ key: 'r1', name: 'รัศมีบน (r1)' }, { key: 'r2', name: 'รัศมีล่าง (r2)' }, { key: 'h', name: 'ความสูง (h)' }],
+        svg: FrustumSVG,
+        calculate: ({ r1, r2, h }) => {
+            const R1 = parseFloat(r1), R2 = parseFloat(r2), H = parseFloat(h);
+            const emptyResult = { volume: 0, lateralSurfaceArea: 0, totalSurfaceArea: 0, steps: "กรุณาใส่ค่าทั้งหมดเป็นบวก" };
+            if (isNaN(R1) || isNaN(R2) || isNaN(H) || R1 <= 0 || R2 <= 0 || H <= 0) return emptyResult;
+            const [rLarge, rSmall] = R2 > R1 ? [R2, R1] : [R1, R2];
+            const volume = (1/3) * Math.PI * H * (rLarge*rLarge + rSmall*rSmall + rLarge*rSmall);
+            const slantHeight = Math.sqrt(Math.pow(rLarge - rSmall, 2) + H*H);
+            const lateralSurfaceArea = Math.PI * (rLarge + rSmall) * slantHeight;
+            const totalSurfaceArea = lateralSurfaceArea + Math.PI * rLarge*rLarge + Math.PI * rSmall*rSmall;
+            const steps = `### 1. คำนวณปริมาตร (Volume)
+ใช้สูตร: $$V = \\frac{1}{3} \\pi h (R^2 + r^2 + Rr)$$
+แทนค่า: $$V = \\frac{1}{3} \\pi (${H}) (${rLarge}^2 + ${rSmall}^2 + ${rLarge} \\times ${rSmall})$$
+**ผลลัพธ์: V ≈ ${volume.toFixed(4)}**
+### 2. คำนวณพื้นที่ผิวข้าง (Lateral Surface Area)
+หาความสูงเอียง (l): $$l = \\sqrt{(R-r)^2 + h^2}$$
+$$l = \\sqrt{(${rLarge}-${rSmall})^2 + ${H}^2} \\approx ${slantHeight.toFixed(4)}$$
+ใช้สูตร: $$A_{ข้าง} = \\pi (R+r) l$$
+แทนค่า: $$A_{ข้าง} = \\pi (${rLarge}+${rSmall})(${slantHeight.toFixed(4)})$$
+**ผลลัพธ์: A ≈ ${lateralSurfaceArea.toFixed(4)}**
+### 3. คำนวณพื้นที่ผิวทั้งหมด (Total Surface Area)
+ใช้สูตร: $$A_{รวม} = A_{ข้าง} + \\pi R^2 + \\pi r^2$$
+แทนค่า: $$A_{รวม} \\approx ${lateralSurfaceArea.toFixed(4)} + \\pi(${rLarge}^2) + \\pi(${rSmall}^2)$$
+**ผลลัพธ์: A ≈ ${totalSurfaceArea.toFixed(4)}**`;
+            return { volume, lateralSurfaceArea, totalSurfaceArea, steps };
+        }
+    },
 };
 
-// Enhanced SVG Components with better visual feedback
-const ConeSVG = ({ r, h }: { r?: number; h?: number }) => (
-  <svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-sm">
-    <defs>
-      <linearGradient id="coneGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" className="stop-blue-200" />
-        <stop offset="100%" className="stop-blue-400" />
-      </linearGradient>
-    </defs>
-    <polygon points="60,10 20,100 100,100" fill="url(#coneGrad)" className="stroke-blue-600" strokeWidth="2"/>
-    <ellipse cx="60" cy="100" rx="40" ry="8" className="fill-blue-300 stroke-blue-600" strokeWidth="1"/>
-    <line x1="20" y1="100" x2="100" y2="100" className="stroke-slate-400" strokeDasharray="3,2"/>
-    <text x="58" y="95" textAnchor="middle" className="text-xs fill-slate-600 font-semibold">{r ? `r=${r}` : 'r'}</text>
-    <line x1="60" y1="10" x2="60" y2="100" className="stroke-slate-400" strokeDasharray="3,2"/>
-    <text x="65" y="55" className="text-xs fill-slate-600 font-semibold">{h ? `h=${h}` : 'h'}</text>
-  </svg>
-);
+// --- RESULTS MODAL COMPONENT (FIXED FOR OVERFLOW - FINAL) ---
+const ResultsModal = ({ isOpen, onClose, shape, values, results }) => {
+    if (!isOpen) return null;
 
-const CylinderSVG = ({ r, h }: { r?: number; h?: number }) => (
-  <svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-sm">
-    <defs>
-      <linearGradient id="cylGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" className="stop-green-200" />
-        <stop offset="100%" className="stop-green-400" />
-      </linearGradient>
-    </defs>
-    <ellipse cx="60" cy="20" rx="35" ry="8" className="fill-green-300 stroke-green-600" strokeWidth="2"/>
-    <rect x="25" y="20" width="70" height="70" fill="url(#cylGrad)" className="stroke-green-600" strokeWidth="2"/>
-    <ellipse cx="60" cy="90" rx="35" ry="8" className="fill-green-400 stroke-green-600" strokeWidth="2"/>
-    <line x1="60" y1="20" x2="60" y2="90" className="stroke-slate-400" strokeDasharray="3,2"/>
-    <text x="65" y="55" className="text-xs fill-slate-600 font-semibold">{h ? `h=${h}` : 'h'}</text>
-    <line x1="60" y1="90" x2="95" y2="90" className="stroke-slate-400" strokeDasharray="3,2"/>
-    <text x="77" y="94" className="text-xs fill-slate-600 font-semibold">{r ? `r=${r}` : 'r'}</text>
-  </svg>
-);
+    const CurrentShapeSVG = shapeConfig[shape].svg;
 
-const SphereSVG = ({ r }: { r?: number }) => (
-  <svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-sm">
-    <defs>
-      <radialGradient id="sphereGrad" cx="40%" cy="40%">
-        <stop offset="0%" className="stop-purple-200" />
-        <stop offset="100%" className="stop-purple-500" />
-      </radialGradient>
-    </defs>
-    <circle cx="60" cy="60" r="40" fill="url(#sphereGrad)" className="stroke-purple-600" strokeWidth="2"/>
-    <ellipse cx="60" cy="60" rx="40" ry="12" className="fill-none stroke-purple-400" strokeWidth="1" strokeDasharray="4,2"/>
-    <ellipse cx="60" cy="60" rx="12" ry="40" className="fill-none stroke-purple-400" strokeWidth="1" strokeDasharray="4,2"/>
-    <line x1="60" y1="60" x2="100" y2="60" className="stroke-slate-400" strokeDasharray="3,2"/>
-    <text x="80" y="58" className="text-xs fill-slate-600 font-semibold">{r ? `r=${r}` : 'r'}</text>
-  </svg>
-);
+    const shareCalculation = () => {
+        const params = new URLSearchParams();
+        params.set('shape', shape);
+        Object.entries(values).forEach(([key, value]) => {
+            if (value) params.set(key, value as string);
+        });
+        const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+        navigator.clipboard.writeText(url);
+        alert("คัดลอกลิงก์ผลลัพธ์ไปยังคลิปบอร์ดแล้ว!");
+    };
+    
+    const valuesDisplayText = useMemo(() => {
+        const shapeInputs = shapeConfig[shape]?.inputs || [];
+        return Object.entries(values)
+            .filter(([, v]) => v)
+            .map(([key, value]) => {
+                const inputConfig = shapeInputs.find(i => i.key === key);
+                const name = inputConfig ? inputConfig.name : key;
+                return `${name}=${value}`;
+            })
+            .join(', ');
+    }, [shape, values]);
+    
+    const processedSteps = useMemo(() => {
+        if (!results.steps) return "";
+        return results.steps
+            .replace(/###\s*(.*?)\n/g, `<h4>$1</h4>`)
+            .replace(/\*\*(.*?)\*\*/g, `<strong>$1</strong>`);
+    }, [results.steps]);
 
-const CubeSVG = ({ s }: { s?: number }) => (
-  <svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-sm">
-    <defs>
-      <linearGradient id="cubeGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" className="stop-orange-200" />
-        <stop offset="100%" className="stop-orange-400" />
-      </linearGradient>
-      <linearGradient id="cubeGrad2" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" className="stop-orange-300" />
-        <stop offset="100%" className="stop-orange-500" />
-      </linearGradient>
-    </defs>
-    <path d="M25 45 L 70 45 L 70 90 L 25 90 Z" fill="url(#cubeGrad1)" className="stroke-orange-600" strokeWidth="2"/>
-    <path d="M25 45 L 40 30 L 85 30 L 70 45 Z" fill="url(#cubeGrad2)" className="stroke-orange-600" strokeWidth="2" />
-    <path d="M70 45 L 85 30 L 85 75 L 70 90 Z" fill="url(#cubeGrad2)" className="stroke-orange-600" strokeWidth="2" />
-    <text x="47" y="105" textAnchor="middle" className="text-xs fill-slate-600 font-semibold">{s ? `s=${s}` : 's'}</text>
-  </svg>
-);
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                        transition={{ type: 'spring', damping: 20, stiffness: 200 }}
+                        // Set the boundary here
+                        className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 dark:border-slate-700 flex flex-col max-h-[90vh]"
+                    >
+                        <Tabs defaultValue="results" className="w-full">
+                            {/* The header is fixed */}
+                            <CardHeader className="flex-shrink-0 flex flex-row items-center justify-between p-4 border-b dark:border-slate-700">
+                                <div className='flex items-center gap-4'>
+                                    <div className="bg-gradient-to-br from-indigo-500 to-blue-600 p-2 rounded-lg shadow-md">
+                                        <CheckCircle className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-xl text-slate-800 dark:text-white">ผลการคำนวณ: {shapeConfig[shape]?.name}</CardTitle>
+                                        <CardDescription className="text-xs">ค่าที่ใช้: {valuesDisplayText}</CardDescription>
+                                    </div>
+                                </div>
+                                <TabsList>
+                                    <TabsTrigger value="results">ผลลัพธ์</TabsTrigger>
+                                    <TabsTrigger value="steps">ขั้นตอน</TabsTrigger>
+                                </TabsList>
+                            </CardHeader>
+                            
 
-const PyramidSVG = ({ s, h }: { s?: number; h?: number }) => (
-  <svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-sm">
-    <defs>
-      <linearGradient id="pyramidGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" className="stop-red-200" />
-        <stop offset="100%" className="stop-red-500" />
-      </linearGradient>
-    </defs>
-    <path d="M25 100 L 95 100 L 60 15 Z" fill="url(#pyramidGrad)" className="stroke-red-600" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M25 100 L 60 80 L 95 100" className="fill-none stroke-red-400" strokeWidth="1"/>
-    <path d="M60 80 L 60 15" className="fill-none stroke-red-400" strokeWidth="1"/>
-    <line x1="60" y1="15" x2="60" y2="100" className="stroke-slate-400" strokeDasharray="3,2"/>
-    <text x="65" y="57" className="text-xs fill-slate-600 font-semibold">{h ? `h=${h}` : 'h'}</text>
-    <text x="60" y="110" textAnchor="middle" className="text-xs fill-slate-600 font-semibold">{s ? `s=${s}` : 's'}</text>
-  </svg>
-);
+                            <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 140px)' }}>
+                                <TabsContent value="results">
+                                    <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                                        <div className="bg-slate-100 dark:bg-slate-800/50 p-4 rounded-xl h-64 flex items-center justify-center">
+                                            <CurrentShapeSVG {...values} />
+                                        </div>
+                                        <div className="space-y-4">
+                                            <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
+                                                <Label className="text-xs text-blue-700 dark:text-blue-300">ปริมาตร (Volume)</Label>
+                                                <p className="text-2xl font-bold text-blue-900 dark:text-white">{math.format(results.volume, {notation: 'fixed', precision: 4})} <span className="text-sm font-normal">หน่วย³</span></p>
+                                            </div>
+                                            <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800">
+                                                <Label className="text-xs text-green-700 dark:text-green-300">พื้นที่ผิวข้าง (Lateral Surface Area)</Label>
+                                                <p className="text-2xl font-bold text-green-900 dark:text-white">{math.format(results.lateralSurfaceArea, {notation: 'fixed', precision: 4})} <span className="text-sm font-normal">หน่วย²</span></p>
+                                            </div>
+                                            <div className="p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800">
+                                                <Label className="text-xs text-purple-700 dark:text-purple-300">พื้นที่ผิวทั้งหมด (Total Surface Area)</Label>
+                                                <p className="text-2xl font-bold text-purple-900 dark:text-white">{math.format(results.totalSurfaceArea, {notation: 'fixed', precision: 4})} <span className="text-sm font-normal">หน่วย²</span></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </TabsContent>
+                                <TabsContent value="steps">
+                                    <div className="p-6 prose prose-sm dark:prose-invert max-w-none prose-h4:font-semibold prose-h4:mb-2 prose-h4:mt-4 prose-strong:text-blue-600 dark:prose-strong:text-blue-400">
+                                        <Latex delimiters={[
+                                            { left: '$$', right: '$$', display: true },
+                                            { left: '$', right: '$', display: false },
+                                        ]}>
+                                            {processedSteps}
+                                        </Latex>
+                                    </div>
+                                </TabsContent>
+                            </div>
+                        </Tabs>
 
-const shapeConfig: Record<Shape, any> = {
-  cone: { 
-    name: 'ทรงกรวย (Cone)', 
-    inputs: ['r', 'h'], 
-    svg: ConeSVG, 
-    example: {r: '7', h: '15', s: ''},
-    description: 'รูปทรงที่มีฐานเป็นวงกลมและยอดแหลม',
-    color: 'blue'
-  },
-  cylinder: { 
-    name: 'ทรงกระบอก (Cylinder)', 
-    inputs: ['r', 'h'], 
-    svg: CylinderSVG, 
-    example: {r: '5', h: '10', s: ''},
-    description: 'รูปทรงที่มีฐานและด้านบนเป็นวงกลมเท่ากัน',
-    color: 'green'
-  },
-  sphere: { 
-    name: 'ทรงกลม (Sphere)', 
-    inputs: ['r'], 
-    svg: SphereSVG, 
-    example: {r: '9', h: '', s: ''},
-    description: 'รูปทรงกลมสมบูรณ์ที่ทุกจุดห่างจากจุดศูนย์กลางเท่ากัน',
-    color: 'purple'
-  },
-  cube: { 
-    name: 'ลูกบาศก์ (Cube)', 
-    inputs: ['s'], 
-    svg: CubeSVG, 
-    example: {r: '', h: '', s: '8'},
-    description: 'รูปทรงที่มี 6 หน้าเป็นสี่เหลี่ยมจัตุรัสเท่ากันทั้งหมด',
-    color: 'orange'
-  },
-  pyramid: { 
-    name: 'พีระมิดฐานสี่เหลี่ยม', 
-    inputs: ['s', 'h'], 
-    svg: PyramidSVG, 
-    example: {r: '', h: '8', s: '12'},
-    description: 'รูปทรงที่มีฐานเป็นสี่เหลี่ยมจัตุรัสและ 4 หน้าเป็นสามเหลี่ยม',
-    color: 'red'
-  },
-};
-
-const GeometryCalculator = () => {
-  const [shape, setShape] = useState<Shape>('cone');
-  const [values, setValues] = useState(shapeConfig.cone.example);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    if (/^\d*\.?\d*$/.test(value)) {
-      setValues(prev => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const handleShapeChange = (val: Shape) => {
-    setShape(val);
-    setValues(shapeConfig[val].example);
-  };
-  
-  const { result, steps } = useMemo(() => {
-    const r = parseFloat(values.r);
-    const h = parseFloat(values.h);
-    const s = parseFloat(values.s);
-    let calcResult: any = { volume: 0, surfaceArea: 0, lateralSurfaceArea: 0 };
-    let calcSteps = '';
-
-    try {
-      switch (shape) {
-        case 'cone':
-          if (r > 0 && h > 0) {
-            const l = Math.sqrt(r*r + h*h);
-            calcResult.volume = (1/3) * Math.PI * r*r * h;
-            calcResult.lateralSurfaceArea = Math.PI * r * l;
-            calcResult.surfaceArea = Math.PI * r * (r + l);
-            calcSteps = `
-              ### 1 การคำนวณปริมาตรทรงกรวย
-              
-              🎯 **สูตรที่ใช้:** $$V = \\frac{1}{3}\\pi r^2 h$$
-              
-              **อธิบายสูตร:** ปริมาตรของทรงกรวยจะเท่ากับ 1/3 ของปริมาตรทรงกระบอกที่มีรัศมีและความสูงเท่ากัน
-              
-              **แทนค่า:**
-              - รัศมี (r) = ${r} หน่วย
-              - ความสูง (h) = ${h} หน่วย
-              
-              **ขั้นตอนการคำนวณ:**
-              1. คำนวณ $r^2$: ${r}² = ${r*r}
-              2. คำนวณ $\\pi r^2 h$: π × ${r*r} × ${h} = π × ${r*r * h} = ${(Math.PI * r*r * h).toFixed(2)}
-              3. หาร 3: ${(Math.PI * r*r * h).toFixed(2)} ÷ 3 = **${calcResult.volume.toFixed(2)}**
-              
-              ### 2 การคำนวณพื้นที่ผิวข้างทรงกรวย
-              
-              🎯 **สูตรที่ใช้:** $A_{lateral} = \\pi r l$
-              
-              **อธิบายสูตร:** พื้นที่ผิวข้าง = พื้นที่ด้านโค้งของกรวย (ไม่รวมฐาน)
-              
-              **ขั้นตอนการคำนวณพื้นที่ผิวข้าง:**
-              - คำนวณ $\\pi r l$: π × ${r} × ${l.toFixed(2)} = **${calcResult.lateralSurfaceArea.toFixed(2)}**
-              
-              ### 3 การคำนวณพื้นที่ผิวทั้งหมดทรงกรวย
-              
-              🎯 **สูตรที่ใช้:** $A_{total} = \\pi r(r + l)$
-              
-              **อธิบายสูตร:** พื้นที่ผิวทั้งหมด = พื้นที่ฐาน + พื้นที่ด้านข้าง
-              
-              **ขั้นตอนการหาความยาวเส้นรอบรูป (l):**
-              - สูตร: $l = \\sqrt{r^2 + h^2}$ (ทฤษฎีบทพีทาโกรัส)
-              - $l = \\sqrt{${r}^2 + ${h}^2} = \\sqrt{${r*r} + ${h*h}} = \\sqrt{${r*r + h*h}} = ${l.toFixed(2)}$
-              
-              **ขั้นตอนการคำนวณพื้นที่ผิวทั้งหมด:**
-              1. พื้นที่ฐาน $\\pi r^2$: π × ${r}² = ${(Math.PI * r*r).toFixed(2)}
-              2. พื้นที่ผิวข้าง $\\pi r l$: ${calcResult.lateralSurfaceArea.toFixed(2)}
-              3. รวมทั้งหมด: ${(Math.PI * r*r).toFixed(2)} + ${calcResult.lateralSurfaceArea.toFixed(2)} = **${calcResult.surfaceArea.toFixed(2)}**
-            `;
-          } else {
-            calcSteps = '❌ กรุณากรอกค่ารัศมี (r) และความสูง (h) ที่มากกว่า 0';
-          }
-          break;
-          
-        case 'cylinder':
-          if (r > 0 && h > 0) {
-            calcResult.volume = Math.PI * r*r * h;
-            calcResult.lateralSurfaceArea = 2 * Math.PI * r * h;
-            calcResult.surfaceArea = 2 * Math.PI * r * (h + r);
-            calcSteps = `
-              ### 1 การคำนวณปริมาตรทรงกระบอก
-              
-              🎯 **สูตรที่ใช้:** $$V = \\pi r^2 h$$
-              
-              **อธิบายสูตร:** ปริมาตร = พื้นที่ฐาน × ความสูง โดยฐานเป็นวงกลม
-              
-              **แทนค่า:**
-              - รัศมี (r) = ${r} หน่วย
-              - ความสูง (h) = ${h} หน่วย
-              
-              **ขั้นตอนการคำนวณ:**
-              1. คำนวณพื้นที่ฐาน $\\pi r^2$: π × ${r}² = π × ${r*r} = ${(Math.PI * r*r).toFixed(2)}
-              2. คูณด้วยความสูง: ${(Math.PI * r*r).toFixed(2)} × ${h} = **${calcResult.volume.toFixed(2)}**
-              
-              ### 2 การคำนวณพื้นที่ผิวข้างทรงกระบอก
-              
-              🎯 **สูตรที่ใช้:** $A_{lateral} = 2\\pi r h$
-              
-              **อธิบายสูตร:** พื้นที่ผิวข้าง = พื้นที่ด้านโค้งของกระบอก (ไม่รวมฐานทั้ง 2 หน้า)
-              
-              **ขั้นตอนการคำนวณพื้นที่ผิวข้าง:**
-              - คำนวณ $2\\pi r h$: 2 × π × ${r} × ${h} = **${calcResult.lateralSurfaceArea.toFixed(2)}**
-              
-              ### 3 การคำนวณพื้นที่ผิวทั้งหมดทรงกระบอก
-              
-              🎯 **สูตรที่ใช้:** $$A = 2\\pi r h + 2\\pi r^2$$
-              
-              **อธิบายสูตร:** พื้นที่ผิว = พื้นที่ด้านข้าง + พื้นที่ฐาน 2 หน้า
-              
-              **ขั้นตอนการคำนวณ:**
-              1. พื้นที่ด้านข้าง $2\\pi r h$: 2 × π × ${r} × ${h} = ${(2 * Math.PI * r * h).toFixed(4)}
-              2. พื้นที่ฐาน 2 หน้า $2\\pi r^2$: 2 × π × ${r}² = ${(2 * Math.PI * r*r).toFixed(4)}
-              3. รวมทั้งหมด: ${(2 * Math.PI * r * h).toFixed(4)} + ${(2 * Math.PI * r*r).toFixed(4)} = **${calcResult.surfaceArea.toFixed(4)}**
-            `;
-          } else {
-            calcSteps = '❌ กรุณากรอกค่ารัศมี (r) และความสูง (h) ที่มากกว่า 0';
-          }
-          break;
-          
-        case 'sphere':
-          if (r > 0) {
-            calcResult.volume = (4/3) * Math.PI * Math.pow(r, 3);
-            calcResult.lateralSurfaceArea = calcResult.surfaceArea = 4 * Math.PI * r*r; // ทรงกลมไม่มีพื้นที่ผิวข้างแยก
-            calcSteps = `
-              ### 1 การคำนวณปริมาตรทรงกลม
-              
-              🎯 **สูตรที่ใช้:** $$V = \\frac{4}{3}\\pi r^3$$
-              
-              **อธิบายสูตร:** สูตรนี้มาจากการหมุนครึ่งวงกลมรอบเส้นผ่านศูนย์กลาง
-              
-              **แทนค่า:**
-              - รัศมี (r) = ${r} หน่วย
-              
-              **ขั้นตอนการคำนวณ:**
-              1. คำนวณ $r^3$: ${r}³ = ${Math.pow(r, 3)}
-              2. คำนวณ $\\frac{4}{3}\\pi r^3$: $\\frac{4}{3}$ × π × ${Math.pow(r, 3)} = **${calcResult.volume.toFixed(2)}**
-              
-              ### 2 การคำนวณพื้นที่ผิวทรงกลม
-              
-              🎯 **สูตรที่ใช้:** $A = 4\\pi r^2$
-              
-              **อธิบายสูตร:** พื้นที่ผิวทรงกลมเท่ากับ 4 เท่าของพื้นที่วงกลมใหญ่
-              
-              **หมายเหตุ:** ทรงกลมไม่มีการแบ่งพื้นที่ผิวข้างและพื้นที่ฐาน เพราะเป็นผิวโค้งต่อเนื่อง
-              
-              **ขั้นตอนการคำนวณ:**
-              1. คำนวณ $r^2$: ${r}² = ${r*r}
-              2. คำนวณ $4\\pi r^2$: 4 × π × ${r*r} = **${calcResult.surfaceArea.toFixed(2)}**
-            `;
-          } else {
-            calcSteps = '❌ กรุณากรอกค่ารัศมี (r) ที่มากกว่า 0';
-          }
-          break;
-          
-        case 'cube':
-          if (s > 0) {
-            calcResult.volume = Math.pow(s, 3);
-            calcResult.lateralSurfaceArea = 4 * s * s; // 4 หน้าข้าง
-            calcResult.surfaceArea = 6 * s * s;
-            calcSteps = `
-              ### 1 การคำนวณปริมาตรลูกบาศก์
-              
-              🎯 **สูตรที่ใช้:** $$V = s^3$$
-              
-              **อธิบายสูตร:** ปริมาตร = ความยาว × ความกว้าง × ความสูง (ซึ่งมีค่าเท่ากันทั้งหมด)
-              
-              **แทนค่า:**
-              - ความยาวด้าน (s) = ${s} หน่วย
-              
-              **ขั้นตอนการคำนวณ:**
-              - $V = s^3 = ${s}^3 = **${calcResult.volume}**
-              
-              ### 2 การคำนวณพื้นที่ผิวข้างลูกบาศก์
-              
-              🎯 **สูตรที่ใช้:** $A_{lateral} = 4s^2$
-              
-              **อธิบายสูตร:** ลูกบาศก์มี 4 หน้าข้าง แต่ละหน้าเป็นสี่เหลี่ยมจัตุรัสที่มีพื้นที่ $s^2$
-              
-              **ขั้นตอนการคำนวณพื้นที่ผิวข้าง:**
-              - พื้นที่ 4 หน้าข้าง: 4 × ${s}² = 4 × ${s*s} = **${calcResult.lateralSurfaceArea}**
-              
-              ### 3 การคำนวณพื้นที่ผิวทั้งหมดลูกบาศก์
-              
-              🎯 **สูตรที่ใช้:** $A_{total} = 6s^2$
-              
-              **อธิบายสูตร:** ลูกบาศก์มี 6 หน้า (4 หน้าข้าง + 2 หน้าฐาน) แต่ละหน้าเป็นสี่เหลี่ยมจัตุรัสที่มีพื้นที่ $s^2$
-              
-              **ขั้นตอนการคำนวณพื้นที่ผิวทั้งหมด:**
-              1. พื้นที่ 4 หน้าข้าง: ${calcResult.lateralSurfaceArea}
-              2. พื้นที่ 2 หน้าฐาน: 2 × ${s*s} = ${2 * s*s}
-              3. รวมทั้งหมด: ${calcResult.lateralSurfaceArea} + ${2 * s*s} = **${calcResult.surfaceArea}**
-            `;
-          } else {
-            calcSteps = '❌ กรุณากรอกค่าความยาวด้าน (s) ที่มากกว่า 0';
-          }
-          break;
-          
-        case 'pyramid':
-          if (s > 0 && h > 0) {
-            const l = Math.sqrt(Math.pow(s/2, 2) + h*h);
-            calcResult.volume = (1/3) * s*s * h;
-            calcResult.lateralSurfaceArea = 2 * s * l; // 4 หน้าสามเหลี่ยม
-            calcResult.surfaceArea = (s*s) + (2 * s * l);
-            calcSteps = `
-              ### 1 การคำนวณปริมาตรพีระมิดฐานสี่เหลี่ยม
-              
-              🎯 **สูตรที่ใช้:** $$V = \\frac{1}{3} s^2 h$$
-              
-              **อธิบายสูตร:** ปริมาตร = 1/3 × พื้นที่ฐาน × ความสูง
-              
-              **แทนค่า:**
-              - ความยาวด้านฐาน (s) = ${s} หน่วย
-              - ความสูง (h) = ${h} หน่วย
-              
-              **ขั้นตอนการคำนวณ:**
-              1. พื้นที่ฐาน $s^2$: ${s}² = ${s*s}
-              2. คำนวณ $\\frac{1}{3} s^2 h$: $\\frac{1}{3}$ × ${s*s} × ${h} = **${calcResult.volume.toFixed(2)}**
-              
-              ### 2 การคำนวณพื้นที่ผิวข้างพีระมิด
-              
-              🎯 **สูตรที่ใช้:** $A_{lateral} = 2sl$
-              
-              **อธิบายสูตร:** พื้นที่ผิวข้าง = พื้นที่หน้าสามเหลี่ยม 4 หน้า (ไม่รวมฐาน)
-              
-              **ขั้นตอนการคำนวณพื้นที่ผิวข้าง:**
-              - พื้นที่หน้าสามเหลี่ยม 4 หน้า: 2 × ${s} × ${l.toFixed(2)} = **${calcResult.lateralSurfaceArea.toFixed(2)}**
-              
-              ### 3 การคำนวณพื้นที่ผิวทั้งหมดพีระมิด
-              
-              🎯 **สูตรที่ใช้:** $A_{total} = s^2 + 2sl$
-              
-              **อธิบายสูตร:** พื้นที่ผิวทั้งหมด = พื้นที่ฐาน + พื้นที่หน้าสามเหลี่ยม 4 หน้า
-              
-              **ขั้นตอนการคำนวณพื้นที่ผิวทั้งหมด:**
-              1. พื้นที่ฐาน: ${s}² = ${s*s}
-              2. พื้นที่ผิวข้าง: ${calcResult.lateralSurfaceArea.toFixed(2)}
-              3. รวมทั้งหมด: ${s*s} + ${calcResult.lateralSurfaceArea.toFixed(2)} = **${calcResult.surfaceArea.toFixed(2)}**
-            `;
-          } else {
-            calcSteps = '❌ กรุณากรอกค่าความยาวด้านฐาน (s) และความสูง (h) ที่มากกว่า 0';
-          }
-          break;
-      }
-    } catch (e) {
-      return { result: null, steps: '⚠️ เกิดข้อผิดพลาดในการคำนวณ กรุณาตรวจสอบค่าที่กรอก' };
-    }
-    return { result: calcResult.volume > 0 ? calcResult : null, steps: calcSteps };
-  }, [shape, values]);
-  
-  const currentConfig = shapeConfig[shape];
-  const SvgComponent = currentConfig.svg;
-  const { r, h, s } = values;
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-2 sm:p-4 lg:p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-6 sm:mb-8"
-        >
-          <div className="flex items-center justify-center mb-4">
-            <Calculator className="h-8 w-8 sm:h-10 sm:w-10 text-blue-600 mr-3" />
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              เครื่องคำนวณเรขาคณิต 3 มิติ
-            </h1>
-          </div>
-          <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base lg:text-lg max-w-2xl mx-auto">
-            เครื่องมือคำนวณปริมาตรและพื้นที่ผิวของรูปทรงเรขาคณิต 3 มิติ พร้อมคำอธิบายขั้นตอนแบบละเอียด
-          </p>
-        </motion.div>
-
-        <Card className="shadow-2xl overflow-hidden border-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-700 border-b dark:border-slate-600 p-4 sm:p-6">
-            <CardTitle className="text-xl sm:text-2xl flex items-center">
-              <Info className="h-5 w-5 sm:h-6 sm:w-6 mr-2 text-blue-600" />
-              การตั้งค่าและคำนวณ
-            </CardTitle>
-            <CardDescription className="text-sm sm:text-base">
-              เลือกรูปทรงและกรอกค่าพารามิเตอร์เพื่อดูผลลัพธ์และวิธีการคำนวณ
-            </CardDescription>
-          </CardHeader>
-          
-          <CardContent className="p-4 sm:p-6 lg:p-8">
-            {/* Shape Selection */}
-            <div className="mb-6 sm:mb-8">
-              <Label className="text-base sm:text-lg font-semibold mb-3 block">เลือกรูปทรงเรขาคณิต</Label>
-              <Select value={shape} onValueChange={handleShapeChange}>
-                <SelectTrigger className="text-sm sm:text-base h-12 sm:h-14 bg-white dark:bg-slate-800 border-2 hover:border-blue-300 transition-colors">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white dark:bg-slate-800">
-                  {Object.entries(shapeConfig).map(([key, config]) => (
-                    <SelectItem key={key} value={key} className="text-sm sm:text-base py-3 cursor-pointer hover:bg-blue-50 dark:hover:bg-slate-700">
-                      <div className="flex items-center">
-                        <div className={`w-3 h-3 rounded-full bg-${config.color}-500 mr-3`}></div>
-                        <div>
-                          <div className="font-medium">{config.name}</div>
-                          <div className="text-xs text-slate-500">{config.description}</div>
+                        {/* The footer is fixed */}
+                        <div className="flex-shrink-0 flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800/50 border-t dark:border-slate-700 rounded-b-2xl">
+                            <Button variant="ghost" onClick={shareCalculation}><Share2 className="mr-2 h-4 w-4" /> แชร์ผลลัพธ์</Button>
+                            <Button onClick={onClose}>ปิด</Button>
                         </div>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8 items-start">
-              {/* Input Section */}
-              <div className="space-y-6">
-                <motion.div 
-                  key={shape} 
-                  initial={{opacity: 0, x: -20}} 
-                  animate={{opacity: 1, x: 0}}
-                  className="p-4 sm:p-6 border-2 border-dashed border-blue-200 dark:border-slate-600 rounded-xl bg-gradient-to-br from-blue-50/50 to-white dark:from-slate-800/50 dark:to-slate-900/50"
-                >
-                  <h3 className="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-200 flex items-center">
-                    <ChevronRight className="h-5 w-5 mr-2 text-blue-600" />
-                    ใส่ค่าพารามิเตอร์
-                  </h3>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {currentConfig.inputs.includes('r') && (
-                      <div className="space-y-2">
-                        <Label htmlFor="r" className="text-sm font-medium flex items-center">
-                          <span className="w-6 h-6 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full flex items-center justify-center text-xs font-bold mr-2">r</span>
-                          รัศมี (Radius)
-                        </Label>
-                        <Input 
-                          id="r" 
-                          name="r" 
-                          value={values.r} 
-                          onChange={handleInputChange}
-                          placeholder="กรอกค่ารัศมี"
-                          className="h-12 text-center text-lg font-semibold border-2 focus:border-blue-400"
-                        />
-                      </div>
-                    )}
-                    
-                    {currentConfig.inputs.includes('h') && (
-                      <div className="space-y-2">
-                        <Label htmlFor="h" className="text-sm font-medium flex items-center">
-                          <span className="w-6 h-6 bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 rounded-full flex items-center justify-center text-xs font-bold mr-2">h</span>
-                          ความสูง (Height)
-                        </Label>
-                        <Input 
-                          id="h" 
-                          name="h" 
-                          value={values.h} 
-                          onChange={handleInputChange}
-                          placeholder="กรอกค่าความสูง"
-                          className="h-12 text-center text-lg font-semibold border-2 focus:border-green-400"
-                        />
-                      </div>
-                    )}
-                    
-                    {currentConfig.inputs.includes('s') && (
-                      <div className="space-y-2">
-                        <Label htmlFor="s" className="text-sm font-medium flex items-center">
-                          <span className="w-6 h-6 bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-300 rounded-full flex items-center justify-center text-xs font-bold mr-2">s</span>
-                          {shape === 'cube' ? 'ความยาวด้าน (Side)' : 'ด้านฐาน (Base Side)'}
-                        </Label>
-                        <Input 
-                          id="s" 
-                          name="s" 
-                          value={values.s} 
-                          onChange={handleInputChange}
-                          placeholder={shape === 'cube' ? 'กรอกความยาวด้าน' : 'กรอกความยาวด้านฐาน'}
-                          className="h-12 text-center text-lg font-semibold border-2 focus:border-orange-400"
-                        />
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Current Values Display */}
-                  <div className="mt-4 p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">ค่าปัจจุบัน:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {currentConfig.inputs.map((input: string) => (
-                        <span key={input} className="inline-flex items-center px-2 py-1 bg-white dark:bg-slate-700 rounded text-xs font-mono">
-                          {input} = {values[input as keyof typeof values] || '0'}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
-
-              {/* Visualization Section */}
-              <div className="flex flex-col items-center justify-center">
-                <motion.div 
-                  initial={{ scale: 0.8, opacity: 0 }} 
-                  animate={{ scale: 1, opacity: 1 }} 
-                  key={shape}
-                  className="w-full max-w-sm aspect-square p-4 bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700"
-                >
-                  <SvgComponent r={parseFloat(r)} h={parseFloat(h)} s={parseFloat(s)} />
-                </motion.div>
-                
-                <div className="mt-4 text-center">
-                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">
-                    {currentConfig.name}
-                  </h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 max-w-xs">
-                    {currentConfig.description}
-                  </p>
+                    </motion.div>
                 </div>
-              </div>
-            </div>
-
-            {/* Results Section */}
-            <AnimatePresence>
-              {result && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }} 
-                  animate={{ opacity: 1, y: 0 }} 
-                  exit={{opacity: 0, y: -20}}
-                  className="mt-8"
-                >
-                  <Card className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-slate-800 dark:to-slate-700 border-2 border-green-200 dark:border-slate-600 shadow-lg">
-                    <CardHeader className="flex-row items-center justify-between pb-4">
-                      <div>
-                        <CardTitle className="text-lg sm:text-xl flex items-center text-green-800 dark:text-green-300">
-                          <Calculator className="h-5 w-5 mr-2" />
-                          ผลลัพธ์การคำนวณ
-                        </CardTitle>
-                        <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                          คำนวณจากค่าที่กรอก: {currentConfig.inputs.map((input: string) => `${input}=${values[input as keyof typeof values]}`).join(', ')}
-                        </p>
-                      </div>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => setIsModalOpen(true)}
-                        className="text-sm sm:text-base border-2 border-blue-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all duration-200"
-                      >
-                        <BookOpen className="mr-2 h-4 w-4"/> 
-                        <span className="hidden sm:inline">ดูวิธีทำ</span>
-                        <span className="sm:hidden">วิธีทำ</span>
-                      </Button>
-                    </CardHeader>
-                    
-                    <CardContent className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-                      <motion.div 
-                        whileHover={{ scale: 1.02 }}
-                        className="p-4 sm:p-6 bg-white dark:bg-slate-900 rounded-xl shadow-md border border-blue-200 dark:border-slate-600"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">ปริมาตร (Volume)</p>
-                          <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                        </div>
-                        <p className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400 font-mono">
-                          {result.volume.toFixed(2)}
-                        </p>
-                        <p className="text-xs text-slate-500 mt-1">ลูกบาศก์หน่วย</p>
-                      </motion.div>
-                      
-                      {shape !== 'sphere' && (
-                        <motion.div 
-                          whileHover={{ scale: 1.02 }}
-                          className="p-4 sm:p-6 bg-white dark:bg-slate-900 rounded-xl shadow-md border border-green-200 dark:border-slate-600"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">
-                              พื้นที่ผิวข้าง {shape === 'cube' ? '(4 หน้า)' : '(Lateral)'}
-                            </p>
-                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                          </div>
-                          <p className="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400 font-mono">
-                            {result.lateralSurfaceArea.toFixed(2)}
-                          </p>
-                          <p className="text-xs text-slate-500 mt-1">ตารางหน่วย</p>
-                        </motion.div>
-                      )}
-                      
-                      <motion.div 
-                        whileHover={{ scale: 1.02 }}
-                        className="p-4 sm:p-6 bg-white dark:bg-slate-900 rounded-xl shadow-md border border-purple-200 dark:border-slate-600"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">
-                            พื้นที่ผิว{shape === 'sphere' ? '' : 'ทั้งหมด'} (Surface Area)
-                          </p>
-                          <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                        </div>
-                        <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 font-mono">
-                          {result.surfaceArea.toFixed(2)}
-                        </p>
-                        <p className="text-xs text-slate-500 mt-1">ตารางหน่วย</p>
-                      </motion.div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* No result message */}
-            {!result && (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="mt-8 text-center p-6 sm:p-8 bg-slate-50 dark:bg-slate-800 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600"
-              >
-                <HelpCircle className="h-12 w-12 text-slate-400 mx-auto mb-3" />
-                <p className="text-slate-600 dark:text-slate-400 text-base sm:text-lg">
-                  กรุณากรอกค่าพารามิเตอร์ที่ถูกต้องและมากกว่า 0 เพื่อดูผลลัพธ์
-                </p>
-                <p className="text-slate-500 dark:text-slate-500 text-sm mt-2">
-                  ระบบจะคำนวณปริมาตรและพื้นที่ผิวให้โดยอัตโนมัติ
-                </p>
-              </motion.div>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Footer */}
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="text-center mt-8 text-slate-500 dark:text-slate-400 text-sm"
-        >
-          <p>💡 เครื่องคำนวณเรขาคณิต 3 มิติ - เครื่องมือช่วยเรียนรู้คณิตศาสตร์</p>
-        </motion.div>
-      </div>
-
-      {/* Modal */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <CalculationStepsModal 
-            isOpen={isModalOpen} 
-            onClose={() => setIsModalOpen(false)} 
-            title={`วิธีการคำนวณ ${currentConfig.name}`}
-            steps={steps} 
-          />
-        )}
-      </AnimatePresence>
-    </div>
-  );
+        </AnimatePresence>
+    );
 };
 
-export default GeometryCalculator;
+
+// --- MAIN APPLICATION COMPONENT ---
+export default function VolumeCalculator() {
+    const [selectedShape, setSelectedShape] = useState<Shape>('cone');
+    const [inputValues, setInputValues] = useState<{ [key: string]: string }>({});
+    const [isResultsModalOpen, setResultsModalOpen] = useState(false);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const shapeKey = params.get('shape') as Shape;
+        if (shapeKey && shapeConfig[shapeKey]) {
+            setSelectedShape(shapeKey);
+            const newValues = {};
+            shapeConfig[shapeKey].inputs.forEach(inputField => {
+                const value = params.get(inputField.key);
+                if (value) { newValues[inputField.key] = value; }
+            });
+            setInputValues(newValues);
+        }
+    }, []);
+
+    const results = useMemo(() => {
+        return shapeConfig[selectedShape].calculate(inputValues);
+    }, [selectedShape, inputValues]);
+    
+    const isInputValid = useMemo(() => {
+      const inputs = shapeConfig[selectedShape].inputs;
+      if (inputs.length === 0) return true;
+      return inputs.every(inputField => {
+        const val = parseFloat(inputValues[inputField.key]);
+        return !isNaN(val) && val > 0;
+      });
+    }, [inputValues, selectedShape]);
+
+    return (
+        <TooltipProvider>
+            <div className="container mx-auto p-4 sm:p-6 md:p-8 font-sans">
+                <Card className="max-w-4xl mx-auto shadow-2xl rounded-3xl overflow-hidden border">
+                    <CardHeader className="bg-slate-50 dark:bg-slate-900/50 p-6 sm:p-8 border-b">
+                        <div className="flex items-center space-x-4">
+                            <div className="bg-gradient-to-br from-indigo-500 to-blue-600 p-3 rounded-2xl shadow-lg"><Calculator className="h-8 w-8 text-white" /></div>
+                            <div>
+                                <CardTitle className="text-2xl md:text-3xl font-extrabold text-slate-800 dark:text-white">เครื่องคำนวณเรขาคณิต 3D</CardTitle>
+                                <CardDescription className="text-slate-600 dark:text-slate-400 mt-1">คำนวณปริมาตรและพื้นที่ผิวของรูปทรงต่างๆ</CardDescription>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-6 sm:p-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="flex flex-col space-y-6">
+                                <div>
+                                    <Label className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-2 block">1. เลือกรูปทรง</Label>
+                                    <Select onValueChange={(v) => { setSelectedShape(v as Shape); setInputValues({}); }} value={selectedShape}>
+                                        <SelectTrigger className="w-full text-base py-6 rounded-xl"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            {Object.entries(shapeConfig).map(([key, { name, icon: Icon }]) => (
+                                                <SelectItem key={key} value={key} className="text-base py-2"><div className="flex items-center"><Icon className="h-5 w-5 mr-3 text-slate-500" />{name}</div></SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-2 block">2. ป้อนค่า</Label>
+                                    <div className="space-y-4 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border">
+                                        {shapeConfig[selectedShape].inputs.map((inputField) => (
+                                            <div key={inputField.key} className="grid grid-cols-3 items-center gap-4">
+                                                <Label htmlFor={inputField.key} className="text-sm font-medium text-slate-600 dark:text-slate-400 text-right">{inputField.name}</Label>
+                                                <Input id={inputField.key} name={inputField.key} type="number" placeholder={`ค่า...`} value={inputValues[inputField.key] || ''} onChange={(e) => setInputValues(prev => ({ ...prev, [e.target.name]: e.target.value }))} className="col-span-2 text-base py-5 rounded-lg" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex justify-end mt-2"><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" onClick={() => setInputValues({})}><Trash2 className="h-4 w-4 mr-1.5" />ล้างค่า</Button></TooltipTrigger><TooltipContent><p>ล้างข้อมูลที่ป้อนทั้งหมด</p></TooltipContent></Tooltip></div>
+                                </div>
+                            </div>
+                            <div className="flex flex-col space-y-6 justify-between">
+                                <div className="bg-gradient-to-br from-slate-100 to-gray-200 dark:from-slate-800 dark:to-slate-900/50 p-4 rounded-2xl h-60 flex items-center justify-center border shadow-inner">
+                                    {shapeConfig[selectedShape].svg(inputValues)}
+                                </div>
+                                <Button size="lg" className="w-full py-7 text-lg rounded-xl" onClick={() => setResultsModalOpen(true)} disabled={!isInputValid}>
+                                    <CheckCircle className="mr-2 h-5 w-5" /> คำนวณและดูผลลัพธ์
+                                </Button>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <ResultsModal
+                    isOpen={isResultsModalOpen}
+                    onClose={() => setResultsModalOpen(false)}
+                    shape={selectedShape}
+                    values={inputValues}
+                    results={results}
+                />
+            </div>
+        </TooltipProvider>
+    );
+}

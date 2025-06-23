@@ -1,3 +1,4 @@
+// src/components/MathCalculator.tsx
 
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -87,6 +88,7 @@ const MathCalculator = () => {
                     animate={{ opacity: 1, y: 0 }}   // Animation for entering content
                     exit={{ opacity: 0, y: -20}}     // Animation for exiting content
                     transition={{ duration: 0.3, ease: 'easeInOut' }} // Animation duration and easing
+                    className="md:min-h-[1100px]"
                 >
                    {renderContent()} {/* Render the active calculator component */}
                 </motion.div>
