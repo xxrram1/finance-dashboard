@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import ChartModal from './ui/ChartModal';
-import { useSupabaseFinance } from '../context/SupabaseFinanceContext'; // <-- เพิ่มบรรทัดนี้
+import { useSupabaseFinance } from '../context/SupabaseFinanceContext';
 import { 
   Bar, BarChart, Line, LineChart, Pie, PieChart, Area, AreaChart,
   CartesianGrid, XAxis, YAxis, Cell, ResponsiveContainer, Legend
@@ -56,6 +56,7 @@ const Analysis = () => {
   const [modalChartType, setModalChartType] = useState<'bar' | 'pie' | 'verticalBar' | 'area'>('bar');
   const [modalChartTitle, setModalChartTitle] = useState('');
   const [modalChartDescription, setModalChartDescription] = useState('');
+  const [isPDFExportModalOpen, setIsPDFExportModalOpen] = useState(false); // ADDED: State for PDF Export modal
 
  const formatCurrency = (amount: number, hideAmount = false) => {
   if (hideAmount) return '฿***,***';
@@ -361,7 +362,14 @@ const Analysis = () => {
               >
                 {showAmounts ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
-              <PDFExport />
+              {/* ADDED: PDF Export Button and Modal Trigger */}
+              <Button 
+                onClick={() => setIsPDFExportModalOpen(true)} 
+                variant="outline" 
+                className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800"
+              >
+                  <Download className="w-4 h-4" /> PDF
+              </Button>
             </div>
           </div>
         </header>
@@ -869,6 +877,11 @@ const Analysis = () => {
     </ResponsiveContainer>
   </ChartContainer>
 </ChartModal>
+      {/* ADDED: PDF Export Modal */}
+      <PDFExport 
+        isOpen={isPDFExportModalOpen} 
+        onClose={() => setIsPDFExportModalOpen(false)} 
+      />
     </div>
   );
 };

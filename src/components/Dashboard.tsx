@@ -6,7 +6,7 @@ import ChartModal from './ui/ChartModal';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Wallet, Percent, Activity, Eye, EyeOff, Info, Package, Maximize } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Wallet, Percent, Activity, Eye, EyeOff, Info, Package, Maximize, FileDown } from 'lucide-react'; // ADDED: FileDown
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,7 +24,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const Dashboard = () => {
-  const { transactions, budgets, loading } = useSupabaseFinance();
+  const { transactions, loading } = useSupabaseFinance();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [showAmounts, setShowAmounts] = useState(true);
 
@@ -36,8 +36,8 @@ const Dashboard = () => {
   const [modalChartTitle, setModalChartTitle] = useState('');
   const [modalChartDescription, setModalChartDescription] = useState('');
   const isMobile = useIsMobile();
+  const [isPDFExportModalOpen, setIsPDFExportModalOpen] = useState(false); // ADDED: State for PDF Export modal
 
-  // Helper function to format currency consistently
  const formatCurrency = (amount: number, hideAmount = false) => {
   if (hideAmount) return '฿***,***';
   return `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -270,12 +270,19 @@ const Dashboard = () => {
                 variant="outline" 
                 size="icon" 
                 onClick={() => setShowAmounts(!showAmounts)} 
-                aria-label={showAmounts ? "Hide amounts" : "Show amounts"}
+                aria-label={showAmounts ? "ซ่อนจำนวนเงิน" : "แสดงจำนวนเงิน"}
                 className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800"
               >
                 {showAmounts ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
-              <PDFExport />
+              {/* ADDED: PDF Export Button and Modal Trigger */}
+              <Button 
+                onClick={() => setIsPDFExportModalOpen(true)} 
+                variant="outline" 
+                className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800"
+              >
+                  <FileDown className="w-4 h-4" /> PDF
+              </Button>
             </div>
           </div>
         </header>
@@ -577,39 +584,45 @@ const Dashboard = () => {
         </main>
       </div>
 
-      {/* Chart Modal (Dialog for Desktop, Drawer for Mobile) - ย้ายมา Render ที่นี่ */}
-      <ChartModal
-        isOpen={isChartModalOpen}
-        onClose={() => setIsChartModalOpen(false)}
-        title={modalChartTitle}
-        description={modalChartDescription}
-      >
-        <ChartContainer config={modalChartConfig} className="h-full w-full max-w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            {modalChartType === 'bar' ? (
-              <BarChart data={modalChartData} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={12} tick={{ fill: '#64748b' }} />
-                <YAxis tickLine={false} axisLine={false} fontSize={12} tick={{ fill: '#64748b' }} tickFormatter={(value) => showAmounts ? `฿${Number(value) / 1000}k` : '฿***'} />
-                <ChartTooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} content={<ChartTooltipContent formatter={(value, name) => [`${formatCurrency(value as number, !showAmounts)}`, chartConfig[name as keyof typeof chartConfig]?.label || name]} />} />
-                <ChartLegend content={<ChartLegendContent />} />
-                <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expense" fill="var(--color-expense)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            ) : (
-              <PieChart>
-                <ChartTooltip content={<ChartTooltipContent nameKey="name" formatter={(value) => formatCurrency(value as number, !showAmounts)} />} />
-                <Pie data={modalChartData} dataKey="value" nameKey="name" innerRadius="30%" outerRadius="80%" paddingAngle={2} animationDuration={500} stroke="none">
-                  {modalChartData.map((entry, index) => (
-                    <Cell key={`modal-cell-expense-${index}`} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <ChartLegend content={<ChartLegendContent />} />
-              </PieChart>
-            )}
-          </ResponsiveContainer>
-        </ChartContainer>
-      </ChartModal>
+      {/* Chart Modal (Dialog for Desktop, Drawer for Mobile) */}
+      {/* REFACTORED: Use the new ChartModal component */}
+<ChartModal
+  isOpen={isChartModalOpen}
+  onClose={() => setIsChartModalOpen(false)}
+  title={modalChartTitle}
+  description={modalChartDescription}
+>
+  <ChartContainer config={modalChartConfig} className="h-full w-full max-w-full">
+    <ResponsiveContainer width="100%" height="100%">
+      {modalChartType === 'bar' ? (
+        <BarChart data={modalChartData} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
+          <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
+          <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={12} tick={{ fill: '#64748b' }} />
+          <YAxis tickLine={false} axisLine={false} fontSize={12} tick={{ fill: '#64748b' }} tickFormatter={(value) => showAmounts ? `฿${Number(value) / 1000}k` : '฿***'} />
+          <ChartTooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} content={<ChartTooltipContent formatter={(value, name) => [`${formatCurrency(value as number, !showAmounts)}`, chartConfig[name as keyof typeof chartConfig]?.label || name]} />} />
+          <ChartLegend content={<ChartLegendContent />} />
+          <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="expense" fill="var(--color-expense)" radius={[4, 4, 0, 0]} />
+        </BarChart>
+      ) : (
+        <PieChart>
+          <ChartTooltip content={<ChartTooltipContent nameKey="name" formatter={(value) => formatCurrency(value as number, !showAmounts)} />} />
+          <Pie data={modalChartData} dataKey="value" nameKey="name" innerRadius="30%" outerRadius="80%" paddingAngle={2} animationDuration={500} stroke="none">
+            {modalChartData.map((entry, index) => (
+              <Cell key={`modal-cell-expense-${index}`} fill={entry.fill} />
+            ))}
+          </Pie>
+          <ChartLegend content={<ChartLegendContent />} />
+        </PieChart>
+      )}
+    </ResponsiveContainer>
+  </ChartContainer>
+</ChartModal>
+      {/* ADDED: PDF Export Modal */}
+      <PDFExport 
+        isOpen={isPDFExportModalOpen} 
+        onClose={() => setIsPDFExportModalOpen(false)} 
+      />
     </div>
   );
 };
