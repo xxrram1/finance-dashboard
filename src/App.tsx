@@ -1,6 +1,5 @@
 // src/App.tsx
-
-import React, { useState } from 'react'; // Import useState
+import React, { useState } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -113,7 +112,10 @@ const App = () => {
               {/* Button to toggle the floating calculator */}
               <Button
                 size="icon"
-                className="fixed bottom-5 right-5 h-14 w-14 rounded-full shadow-2xl z-40 bg-primary hover:bg-primary/90 transition-transform hover:scale-110"
+                // Adjusted 'bottom' CSS property from 'bottom-5' to 'bottom-24'
+                // This moves the calculator button up, preventing overlap with
+                // other components' action buttons at the bottom of the screen.
+                className="fixed bottom-24 right-5 h-14 w-14 rounded-full shadow-2xl z-40 bg-primary hover:bg-primary/90 transition-transform hover:scale-110"
                 onClick={() => setIsCalculatorOpen(prev => !prev)}
                 aria-label="เปิด/ปิด เครื่องคิดเลขลอย"
               >

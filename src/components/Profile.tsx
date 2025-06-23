@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LogOut, User, ShieldCheck, CalendarDays, History, FileDown, MailCheck, RefreshCw, Upload } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import PDFExport from './PDFExport';
+import PDFExport from './PDFExport'; // Import the new modal component
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -38,6 +38,7 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [formLoading, setFormLoading] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [isPDFExportModalOpen, setIsPDFExportModalOpen] = useState(false); // New state for PDF Export modal
 
   const avatarInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -186,7 +187,14 @@ const Profile = () => {
                 <Card className="shadow-xl rounded-2xl bg-white/70 dark:bg-slate-800/50 backdrop-blur-lg border-slate-200/50 dark:border-slate-700/50">
                     <CardHeader><CardTitle className="text-xl">การดำเนินการบัญชี</CardTitle></CardHeader>
                     <CardContent className="flex flex-col space-y-3">
-                        <PDFExport /> 
+                        {/* Modified: Use a button to open the PDFExport modal */}
+                        <Button 
+                          onClick={() => setIsPDFExportModalOpen(true)} 
+                          variant="outline" 
+                          className="w-full justify-start gap-3 h-12 text-base text-blue-600 hover:text-blue-700 border-blue-200 hover:bg-blue-50 dark:border-blue-500/30 dark:hover:bg-blue-500/10 dark:text-blue-400 dark:hover:text-blue-300"
+                        >
+                            <FileDown size={18} /> ส่งออกรายงาน PDF
+                        </Button>
                         <Button onClick={signOut} variant="outline" className="w-full justify-start gap-3 h-12 text-base text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50 dark:border-red-500/30 dark:hover:bg-red-500/10 dark:text-red-400 dark:hover:text-red-300"><LogOut size={18} /> ออกจากระบบ</Button>
                     </CardContent>
                 </Card>
@@ -201,6 +209,12 @@ const Profile = () => {
             </motion.div>
         </div>
         </div>
+
+        {/* Render PDFExport as a modal */}
+        <PDFExport 
+          isOpen={isPDFExportModalOpen} 
+          onClose={() => setIsPDFExportModalOpen(false)} 
+        />
     </div>
   );
 };

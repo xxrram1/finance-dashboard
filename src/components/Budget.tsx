@@ -34,6 +34,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 // For image export (html2canvas must be loaded via CDN in public/index.html or similar)
 declare const html2canvas: any;
 
+// --- Helper Function ---
+const formatCurrency = (amount: number) => `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 // --- Constants & Mappings ---
 const allCategories = ['อาหาร', 'การเดินทาง', 'ความบันเทิง', 'สาธารณูปโภค', 'สุขภาพ', 'ช็อปปิ้ง', 'ค่าเช่า/ผ่อน', 'การศึกษา', 'ค่าใช้จ่ายอื่นๆ'];
 
@@ -49,8 +52,6 @@ const categoryIcons: Record<string, React.ElementType> = {
   'ค่าใช้จ่ายอื่นๆ': Info,
 };
 
-// --- Helper Functions (if any, not extracted from original provided code) ---
-
 // --- Sub-Components ---
 
 // Budget Form Component with Suggestions
@@ -60,8 +61,6 @@ const BudgetForm = ({ onFinished, month, existingBudgets }: { onFinished: () => 
   const [form, setForm] = useState({ category: '', amount: '' });
 
   const availableCategories = allCategories.filter(cat => !existingBudgets.some(b => b.category === cat));
-
-  const formatCurrency = (amount: number) => `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const suggestedAmount = useMemo(() => {
     if (!form.category) return null;
@@ -74,7 +73,7 @@ const BudgetForm = ({ onFinished, month, existingBudgets }: { onFinished: () => 
     if (relevantTransactions.length === 0) return null;
     const total = relevantTransactions.reduce((sum, t) => sum + t.amount, 0);
     const monthsOfData = Math.min(3, new Set(relevantTransactions.map(t => t.date.slice(0, 7))).size);
-  return parseFloat((total / (monthsOfData || 1)).toFixed(2));
+    return parseFloat((total / (monthsOfData || 1)).toFixed(2));
   }, [form.category, transactions]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -158,7 +157,7 @@ const BudgetForm = ({ onFinished, month, existingBudgets }: { onFinished: () => 
                 className="h-9 text-sm"
                 onClick={() => setForm(f => ({ ...f, amount: suggestedAmount.toString() }))}
               >
-                ใช้ยอด ฿{suggestedAmount.toLocaleString()}
+                ใช้ยอด {formatCurrency(suggestedAmount)}
               </Button>
             </motion.div>
           )}
@@ -451,7 +450,7 @@ const Budget = () => {
                             รายรับรวม
                           </p>
                           <p className="text-2xl xl:text-3xl font-bold text-green-900 dark:text-green-100">
-                            ฿{yearlySummary.totalIncome.toLocaleString()}
+                            {formatCurrency(yearlySummary.totalIncome)}
                           </p>
                         </div>
                         <div className="p-3 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600">
@@ -469,7 +468,7 @@ const Budget = () => {
                             รายจ่ายรวม
                           </p>
                           <p className="text-2xl xl:text-3xl font-bold text-red-900 dark:text-red-100">
-                            ฿{yearlySummary.totalExpense.toLocaleString()}
+                            {formatCurrency(yearlySummary.totalExpense)}
                           </p>
                         </div>
                         <div className="p-3 rounded-lg bg-gradient-to-r from-red-500 to-rose-600">
@@ -502,7 +501,7 @@ const Budget = () => {
                               ? "text-blue-900 dark:text-blue-100"
                               : "text-orange-900 dark:text-orange-100"
                           )}>
-                            ฿{yearlySummary.netBalance.toLocaleString()}
+                            {formatCurrency(yearlySummary.netBalance)}
                           </p>
                         </div>
                         <div className={cn(
@@ -549,8 +548,8 @@ const Budget = () => {
                             </CardHeader>
                             <CardContent className="pt-0">
                               <p className="text-2xl xl:text-3xl font-bold text-purple-900 dark:text-purple-100">
-  {formatCurrency(analysis.monthly.totalBudgeted)}
-</p>
+                                {formatCurrency(analysis.monthly.totalBudgeted)}
+                              </p>
                             </CardContent>
                           </Card>
 
@@ -565,7 +564,7 @@ const Budget = () => {
                             </CardHeader>
                             <CardContent className="pt-0">
                               <p className="text-2xl xl:text-3xl font-bold text-red-900 dark:text-red-100">
-                                ฿{analysis.monthly.totalSpent.toLocaleString()}
+                                {formatCurrency(analysis.monthly.totalSpent)}
                               </p>
                             </CardContent>
                           </Card>
@@ -601,7 +600,7 @@ const Budget = () => {
                                   ? "text-green-900 dark:text-green-100"
                                   : "text-orange-900 dark:text-orange-100"
                               )}>
-                                ฿{Math.abs(analysis.monthly.totalRemaining).toLocaleString()}
+                                {formatCurrency(Math.abs(analysis.monthly.totalRemaining))}
                               </p>
                             </CardContent>
                           </Card>
@@ -708,7 +707,7 @@ const Budget = () => {
                                         <div className="flex justify-between text-sm">
                                           <span className="text-slate-600 dark:text-slate-300">ใช้ไป</span>
                                           <span className="font-medium text-slate-800 dark:text-slate-100">
-                                            ฿{item.spent.toLocaleString()} / ฿{item.amount.toLocaleString()}
+                                            {formatCurrency(item.spent)} / {formatCurrency(item.amount)}
                                           </span>
                                         </div>
                                         <div className="pt-3 border-t border-slate-200 dark:border-slate-600 text-center">
@@ -719,7 +718,7 @@ const Budget = () => {
                                             "text-lg font-bold",
                                             item.status === 'over' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
                                           )}>
-                                            ฿{Math.abs(item.remaining).toLocaleString()}
+                                            {formatCurrency(Math.abs(item.remaining))}
                                           </p>
                                         </div>
                                       </CardContent>
@@ -910,12 +909,12 @@ const Budget = () => {
                               <Tooltip key={i}>
                                 <TooltipTrigger asChild>
                                   <TableCell className={cn("text-center cursor-pointer transition-colors break-all", cellColorClass)}>
-                                    {cell.budget > 0 ? `฿${cell.spent.toLocaleString()}` : (cell.spent > 0 ? `฿${cell.spent.toLocaleString()}` : '-')}
+                                    {cell.budget > 0 ? formatCurrency(cell.spent) : (cell.spent > 0 ? formatCurrency(cell.spent) : '-')}
                                   </TableCell>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>งบ: ฿{cell.budget.toLocaleString()}</p>
-                                  <p>ใช้ไป: ฿{cell.spent.toLocaleString()}</p>
+                                  <p>งบ: {formatCurrency(cell.budget)}</p>
+                                  <p>ใช้ไป: {formatCurrency(cell.spent)}</p>
                                   {cell.status === 'no-budget-spent' && <p className="text-blue-300">ไม่มีงบประมาณ, มีการใช้จ่าย</p>}
                                   {cell.status === 'over' && <p className="text-red-300">เกินงบประมาณ!</p>}
                                   {cell.status === 'warning' && <p className="text-yellow-300">ใกล้เกินงบประมาณ</p>}
@@ -924,7 +923,7 @@ const Budget = () => {
                             )
                           })}
                           <TableCell className="text-right font-semibold sticky right-0 bg-card z-10 break-all text-slate-800 dark:text-slate-200">
-                            ฿{totalSpent.toLocaleString()}
+                            {formatCurrency(totalSpent)}
                           </TableCell>
                         </TableRow>
                       )
@@ -938,13 +937,13 @@ const Budget = () => {
                           const dataRow = analysis.annualData.find(row => row.category === category);
                           return sum + (dataRow?.monthlyBreakdown[i]?.spent || 0);
                         }, 0);
-                        return <TableCell key={i} className="text-center font-bold break-all">฿{monthTotal.toLocaleString()}</TableCell>
+                        return <TableCell key={i} className="text-center font-bold break-all">{formatCurrency(monthTotal)}</TableCell>
                       })}
                       <TableCell className="text-right font-bold sticky right-0 bg-muted/50 z-20 break-all">
-                        ฿{allCategories.reduce((sum, category) => {
+                        {formatCurrency(allCategories.reduce((sum, category) => {
                           const dataRow = analysis.annualData.find(row => row.category === category);
                           return sum + (dataRow?.totalSpent || 0);
-                        }, 0).toLocaleString()}
+                        }, 0))}
                       </TableCell>
                     </TableRow>
                   </TableFooter>
@@ -1019,12 +1018,12 @@ const Budget = () => {
                               <Tooltip key={i}>
                                 <TooltipTrigger asChild>
                                   <TableCell className={cn("text-center cursor-pointer transition-colors break-all", cellColorClass)}>
-                                    {cell.budget > 0 ? `฿${cell.spent.toLocaleString()}` : (cell.spent > 0 ? `฿${cell.spent.toLocaleString()}` : '-')}
+                                    {cell.budget > 0 ? formatCurrency(cell.spent) : (cell.spent > 0 ? formatCurrency(cell.spent) : '-')}
                                   </TableCell>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>งบ: ฿{cell.budget.toLocaleString()}</p>
-                                  <p>ใช้ไป: ฿{cell.spent.toLocaleString()}</p>
+                                  <p>งบ: {formatCurrency(cell.budget)}</p>
+                                  <p>ใช้ไป: {formatCurrency(cell.spent)}</p>
                                   {cell.status === 'no-budget-spent' && <p className="text-blue-300">ไม่มีงบประมาณ, มีการใช้จ่าย</p>}
                                   {cell.status === 'over' && <p className="text-red-300">เกินงบประมาณ!</p>}
                                   {cell.status === 'warning' && <p className="text-yellow-300">ใกล้เกินงบประมาณ</p>}
@@ -1033,7 +1032,7 @@ const Budget = () => {
                             )
                           })}
                           <TableCell className="text-right font-semibold sticky right-0 bg-card z-10 break-all text-slate-800 dark:text-slate-200">
-                            ฿{totalSpent.toLocaleString()}
+                            {formatCurrency(totalSpent)}
                           </TableCell>
                         </TableRow>
                       )
@@ -1047,13 +1046,13 @@ const Budget = () => {
                           const dataRow = analysis.annualData.find(row => row.category === category);
                           return sum + (dataRow?.monthlyBreakdown[i]?.spent || 0);
                         }, 0);
-                        return <TableCell key={i} className="text-center font-bold break-all">฿{monthTotal.toLocaleString()}</TableCell>
+                        return <TableCell key={i} className="text-center font-bold break-all">{formatCurrency(monthTotal)}</TableCell>
                       })}
                       <TableCell className="text-right font-bold sticky right-0 bg-muted/50 z-20 break-all">
-                        ฿{allCategories.reduce((sum, category) => {
+                        {formatCurrency(allCategories.reduce((sum, category) => {
                           const dataRow = analysis.annualData.find(row => row.category === category);
                           return sum + (dataRow?.totalSpent || 0);
-                        }, 0).toLocaleString()}
+                        }, 0))}
                       </TableCell>
                     </TableRow>
                   </TableFooter>

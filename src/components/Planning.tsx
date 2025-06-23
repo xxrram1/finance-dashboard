@@ -24,6 +24,9 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { format, subMonths } from 'date-fns';
 
+// Helper function to format currency consistently
+const formatCurrency = (amount: number) => `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 // Interfaces for this component
 interface Goal {
   id: string;
@@ -69,7 +72,7 @@ const GoalForm = ({ onSave, goal }: { onSave: (goal: Omit<Goal, 'id' | 'savedAmo
         onSave({ name, targetAmount: parseFloat(targetAmount), icon });
     };
 
-    const formatCurrency = (amount: number) => `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+   
 
     const GetIconComponent = goalIcons[icon] || Target;
 
