@@ -41,7 +41,7 @@ import { Alert } from '@/components/ui/alert';
 const ITEMS_PER_PAGE = 12;
 
 // Helper to format currency
-const formatCurrency = (amount: number) => `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+const formatCurrency = (amount: number) => `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 // Enhanced Transaction Form Component
 const TransactionForm = ({ onFinished, transactionToEdit }: { onFinished: () => void, transactionToEdit?: Transaction | null }) => {

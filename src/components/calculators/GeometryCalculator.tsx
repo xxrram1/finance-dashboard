@@ -4,26 +4,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    BookOpen, X, Copy, Layers, Calculator, Share2, Trash2, Zap, Target,
-    Maximize2, TrendingUp, BarChart3, AlertTriangle, CheckCircle, HelpCircle, RefreshCw
+    BookOpen, X, Layers, Calculator, Share2, Trash2, Zap, Target,
+    Maximize2, TrendingUp, BarChart3, AlertTriangle, CheckCircle, HelpCircle, RefreshCw, ChevronLeft
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { create, all } from 'mathjs';
+import { Separator } from '@/components/ui/separator';
 import Latex from 'react-latex-next';
 import 'katex/dist/katex.min.css';
-import { Separator } from '@/components/ui/separator';
 
-// --- MATH.JS CONFIGURATION ---
-const math = create(all, { number: 'BigNumber', precision: 64 });
-
-// --- TYPE DEFINITIONS ---
+// --- TYPE DEFINITIONS & HELPERS ---
 type Shape = 'cone' | 'cylinder' | 'sphere' | 'cube' | 'pyramid' | 'prism' | 'torus' | 'hemisphere' | 'frustum';
 type InputField = { key: string; name: string; };
+const f = (num) => parseFloat(num.toFixed(4)).toLocaleString();
 
 // --- SVG COMPONENTS ---
 const ConeSVG = ({ r, h }: { r?: string; h?: string }) => ( <motion.svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-xl" initial={{ opacity: 0}} animate={{ opacity: 1}}><defs><linearGradient id="coneGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" className="stop-blue-200" /><stop offset="50%" className="stop-blue-400" /><stop offset="100%" className="stop-blue-600" /></linearGradient></defs><polygon points="60,15 25,95 95,95" fill="url(#coneGrad)" stroke="#1e40af" strokeWidth="2.5" /><ellipse cx="60" cy="95" rx="35" ry="10" fill="#3b82f6" stroke="#1d4ed8" strokeWidth="2" /><line x1="25" y1="95" x2="95" y2="95" stroke="#64748b" strokeDasharray="4,3" strokeWidth="1.5"/><text x="58" y="88" textAnchor="middle" className="text-sm fill-slate-700 font-bold">{r ? `r=${r}` : 'r'}</text><line x1="60" y1="15" x2="60" y2="95" stroke="#64748b" strokeDasharray="4,3" strokeWidth="1.5"/><text x="70" y="55" className="text-sm fill-slate-700 font-bold">{h ? `h=${h}` : 'h'}</text></motion.svg>);
@@ -282,36 +276,28 @@ $$l = \\sqrt{(${rLarge}-${rSmall})^2 + ${H}^2} \\approx ${slantHeight.toFixed(4)
     },
 };
 
-// --- RESULTS MODAL COMPONENT ---
-const ResultsModal = ({ isOpen, onClose, shape, values, results }) => {
-    if (!isOpen) return null;
+// --- Sub-Components for the Main View ---
+const InputPanel = ({ selectedShape, inputValues, setInputValues }) => (
+    <div>
+        <div className="flex justify-between items-center mb-2">
+            <Label className="text-base font-semibold text-slate-700 dark:text-slate-300">2. ป้อนค่า</Label>
+            <Tooltip>
+                <TooltipTrigger asChild><Button variant="ghost" size="sm" onClick={() => setInputValues({})}><Trash2 className="h-4 w-4 mr-1.5" />ล้างค่า</Button></TooltipTrigger>
+                <TooltipContent><p>ล้างข้อมูลที่ป้อนทั้งหมด</p></TooltipContent>
+            </Tooltip>
+        </div>
+        <div className="space-y-4 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border">
+            {shapeConfig[selectedShape].inputs.map((inputField) => (
+                <div key={inputField.key} className="grid grid-cols-3 items-center gap-4">
+                    <Label htmlFor={inputField.key} className="text-sm font-medium text-slate-600 dark:text-slate-400 text-right">{inputField.name}</Label>
+                    <Input id={inputField.key} name={inputField.key} type="number" placeholder={`ค่า...`} value={inputValues[inputField.key] || ''} onChange={(e) => setInputValues(prev => ({ ...prev, [e.target.name]: e.target.value }))} className="col-span-2 text-base py-5 rounded-lg" />
+                </div>
+            ))}
+        </div>
+    </div>
+);
 
-    const CurrentShapeSVG = shapeConfig[shape].svg;
-    const f = (num) => math.format(num, { notation: 'fixed', precision: 4 });
-
-    const shareCalculation = () => {
-        const params = new URLSearchParams();
-        params.set('shape', shape);
-        Object.entries(values).forEach(([key, value]) => {
-            if (value) params.set(key, value as string);
-        });
-        const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
-        navigator.clipboard.writeText(url);
-        alert("คัดลอกลิงก์ผลลัพธ์ไปยังคลิปบอร์ดแล้ว!");
-    };
-    
-    const valuesDisplayText = useMemo(() => {
-        const shapeInputs = shapeConfig[shape]?.inputs || [];
-        return Object.entries(values)
-            .filter(([, v]) => v)
-            .map(([key, value]) => {
-                const inputConfig = shapeInputs.find(i => i.key === key);
-                const name = inputConfig ? inputConfig.name : key;
-                return `${name}=${value}`;
-            })
-            .join(', ');
-    }, [shape, values]);
-    
+const ResultsPanel = ({ shape, values, results, onBack, isMobile }) => {
     const processedSteps = useMemo(() => {
         if (!results.steps) return "";
         return results.steps
@@ -320,79 +306,40 @@ const ResultsModal = ({ isOpen, onClose, shape, values, results }) => {
     }, [results.steps]);
 
     return (
-        <AnimatePresence>
-            {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                        transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-                        className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 dark:border-slate-700 flex flex-col max-h-[90vh]"
-                    >
-                        <Tabs defaultValue="results" className="w-full flex flex-col min-h-0">
-                            <div className="flex-shrink-0 border-b dark:border-slate-700">
-                                <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 gap-4">
-                                    <div className='flex items-center gap-4'>
-                                        <div className="bg-gradient-to-br from-indigo-500 to-blue-600 p-2 rounded-lg shadow-md">
-                                            <CheckCircle className="h-6 w-6 text-white" />
-                                        </div>
-                                        <div>
-                                            <CardTitle className="text-lg sm:text-xl text-slate-800 dark:text-white">ผลการคำนวณ: {shapeConfig[shape]?.name}</CardTitle>
-                                            <CardDescription className="text-xs mt-1">ค่าที่ใช้: {valuesDisplayText}</CardDescription>
-                                        </div>
-                                    </div>
-                                    <TabsList className="w-full sm:w-auto">
-                                        <TabsTrigger value="results" className="w-1/2 sm:w-auto">ผลลัพธ์</TabsTrigger>
-                                        <TabsTrigger value="steps" className="w-1/2 sm:w-auto">ขั้นตอน</TabsTrigger>
-                                    </TabsList>
-                                </CardHeader>
-                            </div>
-                            
-                            <div className="flex-grow overflow-y-auto">
-                                <TabsContent value="results" className="p-4 md:p-6">
-                                    <div className="flex flex-col lg:flex-row gap-6">
-                                        <div className="lg:w-1/3 flex-shrink-0">
-                                             <div className="bg-slate-100 dark:bg-slate-800/50 p-4 rounded-xl h-48 lg:h-full flex items-center justify-center">
-                                                <CurrentShapeSVG {...values} />
-                                            </div>
-                                        </div>
-                                        <div className="lg:w-2/3 space-y-3 border dark:border-slate-800 rounded-lg p-4">
-                                            <div>
-                                                <Label className="text-xs text-blue-700 dark:text-blue-300">ปริมาตร (Volume)</Label>
-                                                <p className="text-xl sm:text-2xl font-bold text-blue-900 dark:text-white">{f(results.volume)} <span className="text-sm font-normal">หน่วย³</span></p>
-                                            </div>
-                                            <Separator/>
-                                            <div>
-                                                <Label className="text-xs text-green-700 dark:text-green-300">พื้นที่ผิวข้าง (Lateral Surface Area)</Label>
-                                                <p className="text-xl sm:text-2xl font-bold text-green-900 dark:text-white">{f(results.lateralSurfaceArea)} <span className="text-sm font-normal">หน่วย²</span></p>
-                                            </div>
-                                            <Separator/>
-                                            <div>
-                                                <Label className="text-xs text-purple-700 dark:text-purple-300">พื้นที่ผิวทั้งหมด (Total Surface Area)</Label>
-                                                <p className="text-xl sm:text-2xl font-bold text-purple-900 dark:text-white">{f(results.totalSurfaceArea)} <span className="text-sm font-normal">หน่วย²</span></p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </TabsContent>
-                                <TabsContent value="steps">
-                                    <div className="p-4 md:p-6 prose prose-sm dark:prose-invert max-w-none prose-h4:font-semibold prose-h4:mb-2 prose-h4:mt-4 prose-strong:text-blue-600 dark:prose-strong:text-blue-400 overflow-x-auto">
-                                        <Latex delimiters={[{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }]}>
-                                            {processedSteps}
-                                        </Latex>
-                                    </div>
-                                </TabsContent>
-                            </div>
-                        </Tabs>
-
-                        <div className="flex-shrink-0 flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800/50 border-t dark:border-slate-700 rounded-b-2xl">
-                            <Button variant="ghost" onClick={shareCalculation}><Share2 className="mr-2 h-4 w-4" /> แชร์ผลลัพธ์</Button>
-                            <Button onClick={onClose}>ปิด</Button>
-                        </div>
-                    </motion.div>
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl h-full flex flex-col">
+            <div className="flex items-center gap-2 p-4 border-b dark:border-slate-700 flex-shrink-0">
+                {isMobile && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onBack}><ChevronLeft/></Button>}
+                <h3 className="text-lg font-bold">ผลการคำนวณ: {shapeConfig[shape].name}</h3>
+            </div>
+            <div className='p-4 sm:p-6 space-y-4 overflow-y-auto'>
+                <div className="space-y-3 border dark:border-slate-800 rounded-lg p-4">
+                    <div>
+                        <Label className="text-xs text-blue-700 dark:text-blue-300">ปริมาตร (Volume)</Label>
+                        <p className="text-xl sm:text-2xl font-bold text-blue-900 dark:text-white">{f(results.volume)} <span className="text-sm font-normal">หน่วย³</span></p>
+                    </div>
+                    <Separator/>
+                    <div>
+                        <Label className="text-xs text-green-700 dark:text-green-300">พื้นที่ผิวข้าง (Lateral Surface Area)</Label>
+                        <p className="text-xl sm:text-2xl font-bold text-green-900 dark:text-white">{f(results.lateralSurfaceArea)} <span className="text-sm font-normal">หน่วย²</span></p>
+                    </div>
+                    <Separator/>
+                    <div>
+                        <Label className="text-xs text-purple-700 dark:text-purple-300">พื้นที่ผิวทั้งหมด (Total Surface Area)</Label>
+                        <p className="text-xl sm:text-2xl font-bold text-purple-900 dark:text-white">{f(results.totalSurfaceArea)} <span className="text-sm font-normal">หน่วย²</span></p>
+                    </div>
                 </div>
-            )}
-        </AnimatePresence>
+                <details className="pt-2">
+                    <summary className="cursor-pointer text-sm font-semibold text-indigo-600 hover:underline">
+                        แสดงขั้นตอนการคำนวณ
+                    </summary>
+                    <div className="mt-2 p-4 border dark:border-slate-700 rounded-lg prose prose-sm dark:prose-invert max-w-none overflow-x-auto">
+                        <Latex delimiters={[{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }]}>
+                            {processedSteps}
+                        </Latex>
+                    </div>
+                </details>
+            </div>
+        </div>
     );
 };
 
@@ -400,8 +347,16 @@ const ResultsModal = ({ isOpen, onClose, shape, values, results }) => {
 export default function VolumeCalculator() {
     const [selectedShape, setSelectedShape] = useState<Shape>('cone');
     const [inputValues, setInputValues] = useState<{ [key: string]: string }>({});
-    const [isResultsModalOpen, setResultsModalOpen] = useState(false);
+    const [view, setView] = useState<'input' | 'results'>('input');
+    const [isMobile, setIsMobile] = useState(false);
 
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+    
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const shapeKey = params.get('shape') as Shape;
@@ -429,10 +384,18 @@ export default function VolumeCalculator() {
       });
     }, [inputValues, selectedShape]);
 
+    const CurrentShapeSVG = shapeConfig[selectedShape].svg;
+
+    const showResults = () => {
+        if (isMobile) {
+            setView('results');
+        }
+    };
+
     return (
         <TooltipProvider>
             <div className="container mx-auto p-4 sm:p-6 md:p-8 font-sans">
-                <Card className="max-w-4xl mx-auto shadow-2xl rounded-3xl overflow-hidden border">
+                <Card className="max-w-6xl mx-auto shadow-2xl rounded-3xl overflow-hidden border">
                     <CardHeader className="bg-slate-50 dark:bg-slate-900/50 p-6 sm:p-8 border-b">
                         <div className="flex items-center space-x-4">
                             <div className="bg-gradient-to-br from-indigo-500 to-blue-600 p-3 rounded-2xl shadow-lg"><Calculator className="h-8 w-8 text-white" /></div>
@@ -443,52 +406,50 @@ export default function VolumeCalculator() {
                         </div>
                     </CardHeader>
                     <CardContent className="p-4 sm:p-6 lg:p-8">
-                        <div className="flex flex-col gap-6">
-                            <div>
-                                <Label className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-2 block">1. เลือกรูปทรง</Label>
-                                <Select onValueChange={(v) => { setSelectedShape(v as Shape); setInputValues({}); }} value={selectedShape}>
-                                    <SelectTrigger className="w-full text-base py-6 rounded-xl"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {Object.entries(shapeConfig).map(([key, { name, icon: Icon }]) => (
-                                            <SelectItem key={key} value={key} className="text-base py-2"><div className="flex items-center"><Icon className="h-5 w-5 mr-3 text-slate-500" />{name}</div></SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <AnimatePresence mode="wait">
+                                {(!isMobile || view === 'input') && (
+                                    <motion.div key="input-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-6">
+                                        <div>
+                                            <Label className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-2 block">1. เลือกรูปทรง</Label>
+                                            <Select onValueChange={(v) => { setSelectedShape(v as Shape); setInputValues({}); }} value={selectedShape}>
+                                                <SelectTrigger className="w-full text-base py-6 rounded-xl"><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    {Object.entries(shapeConfig).map(([key, { name, icon: Icon }]) => (
+                                                        <SelectItem key={key} value={key} className="text-base py-2"><div className="flex items-center"><Icon className="h-5 w-5 mr-3 text-slate-500" />{name}</div></SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="bg-gradient-to-br from-slate-100 to-gray-200 dark:from-slate-800 dark:to-slate-900/50 p-4 rounded-2xl h-48 flex items-center justify-center border shadow-inner">
+                                            <CurrentShapeSVG {...inputValues} />
+                                        </div>
+                                        <InputPanel selectedShape={selectedShape} inputValues={inputValues} setInputValues={setInputValues} />
+                                        <div className="lg:hidden pt-4">
+                                            <Button size="lg" className="w-full py-7 text-lg rounded-xl" onClick={showResults} disabled={!isInputValid}>
+                                                <CheckCircle className="mr-2 h-5 w-5" /> คำนวณ
+                                            </Button>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-center">
-                                <div className="bg-gradient-to-br from-slate-100 to-gray-200 dark:from-slate-800 dark:to-slate-900/50 p-4 rounded-2xl h-52 flex items-center justify-center border shadow-inner order-last lg:order-first">
-                                    {shapeConfig[selectedShape].svg(inputValues)}
-                                </div>
-                                <div>
-                                    <div className="flex justify-between items-center mb-2">
-                                        <Label className="text-base font-semibold text-slate-700 dark:text-slate-300">2. ป้อนค่า</Label>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild><Button variant="ghost" size="sm" onClick={() => setInputValues({})}><Trash2 className="h-4 w-4 mr-1.5" />ล้างค่า</Button></TooltipTrigger>
-                                            <TooltipContent><p>ล้างข้อมูลที่ป้อนทั้งหมด</p></TooltipContent>
-                                        </Tooltip>
-                                    </div>
-                                    <div className="space-y-4 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border">
-                                        {shapeConfig[selectedShape].inputs.map((inputField) => (
-                                            <div key={inputField.key} className="grid grid-cols-3 items-center gap-4">
-                                                <Label htmlFor={inputField.key} className="text-sm font-medium text-slate-600 dark:text-slate-400 text-right">{inputField.name}</Label>
-                                                <Input id={inputField.key} name={inputField.key} type="number" placeholder={`ค่า...`} value={inputValues[inputField.key] || ''} onChange={(e) => setInputValues(prev => ({ ...prev, [e.target.name]: e.target.value }))} className="col-span-2 text-base py-5 rounded-lg" />
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div className="pt-4">
-                                <Button size="lg" className="w-full py-7 text-lg rounded-xl" onClick={() => setResultsModalOpen(true)} disabled={!isInputValid}>
-                                    <CheckCircle className="mr-2 h-5 w-5" /> คำนวณและดูผลลัพธ์
-                                </Button>
-                            </div>
+                             <AnimatePresence>
+                                {(!isMobile || view === 'results') && (
+                                    <motion.div key="results-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                                         <ResultsPanel 
+                                            shape={selectedShape}
+                                            values={inputValues}
+                                            results={results}
+                                            onBack={() => setView('input')}
+                                            isMobile={isMobile}
+                                        />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
                     </CardContent>
                 </Card>
-
-                <ResultsModal isOpen={isResultsModalOpen} onClose={() => setResultsModalOpen(false)} shape={selectedShape} values={inputValues} results={results} />
             </div>
         </TooltipProvider>
     );

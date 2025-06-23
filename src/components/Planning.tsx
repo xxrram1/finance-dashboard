@@ -69,6 +69,8 @@ const GoalForm = ({ onSave, goal }: { onSave: (goal: Omit<Goal, 'id' | 'savedAmo
         onSave({ name, targetAmount: parseFloat(targetAmount), icon });
     };
 
+    const formatCurrency = (amount: number) => `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
     const GetIconComponent = goalIcons[icon] || Target;
 
     return (
@@ -694,7 +696,7 @@ const Planning = () => {
                                             {debt.name || 'หนี้สินใหม่'}
                                           </span>
                                           <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
-                                            ฿{debt.amount.toLocaleString()} | {debt.interestRate}% ดอกเบี้ย | ฿{debt.minimumPayment.toLocaleString()}/เดือน
+                                          {formatCurrency(debt.amount)} | {debt.interestRate}% ดอกเบี้ย | {formatCurrency(debt.minimumPayment)}/เดือน
                                           </span>
                                       </div>
                                       <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400 transition-transform data-[state=open]:rotate-180 flex-shrink-0" />

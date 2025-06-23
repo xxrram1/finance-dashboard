@@ -57,10 +57,10 @@ const Analysis = () => {
   const [modalChartTitle, setModalChartTitle] = useState('');
   const [modalChartDescription, setModalChartDescription] = useState('');
 
-  const formatCurrency = (amount: number, hideAmount = false) => {
-    if (hideAmount) return '฿***,***';
-    return `฿${amount.toLocaleString('th-TH', { maximumFractionDigits: 0 })}`;
-  };
+ const formatCurrency = (amount: number, hideAmount = false) => {
+  if (hideAmount) return '฿***,***';
+  return `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
   
   const availableYears = useMemo(() => {
     const currentYear = new Date().getFullYear();

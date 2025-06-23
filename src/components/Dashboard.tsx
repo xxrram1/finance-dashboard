@@ -38,10 +38,10 @@ const Dashboard = () => {
   const isMobile = useIsMobile();
 
   // Helper function to format currency consistently
-  const formatCurrency = (amount: number, hideAmount = false) => {
-    if (hideAmount) return '฿***,***';
-    return `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-  };
+ const formatCurrency = (amount: number, hideAmount = false) => {
+  if (hideAmount) return '฿***,***';
+  return `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 
   // Memoized list of available years from transactions, plus current and future years
   const years = useMemo(() => {

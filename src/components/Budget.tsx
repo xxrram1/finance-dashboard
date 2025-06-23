@@ -61,6 +61,8 @@ const BudgetForm = ({ onFinished, month, existingBudgets }: { onFinished: () => 
 
   const availableCategories = allCategories.filter(cat => !existingBudgets.some(b => b.category === cat));
 
+  const formatCurrency = (amount: number) => `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
   const suggestedAmount = useMemo(() => {
     if (!form.category) return null;
     const threeMonthsAgo = subMonths(new Date(), 3);
@@ -72,7 +74,7 @@ const BudgetForm = ({ onFinished, month, existingBudgets }: { onFinished: () => 
     if (relevantTransactions.length === 0) return null;
     const total = relevantTransactions.reduce((sum, t) => sum + t.amount, 0);
     const monthsOfData = Math.min(3, new Set(relevantTransactions.map(t => t.date.slice(0, 7))).size);
-    return Math.round(total / (monthsOfData || 1));
+  return parseFloat((total / (monthsOfData || 1)).toFixed(2));
   }, [form.category, transactions]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -547,8 +549,8 @@ const Budget = () => {
                             </CardHeader>
                             <CardContent className="pt-0">
                               <p className="text-2xl xl:text-3xl font-bold text-purple-900 dark:text-purple-100">
-                                ฿{analysis.monthly.totalBudgeted.toLocaleString()}
-                              </p>
+  {formatCurrency(analysis.monthly.totalBudgeted)}
+</p>
                             </CardContent>
                           </Card>
 
