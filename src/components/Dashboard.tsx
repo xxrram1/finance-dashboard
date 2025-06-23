@@ -1,10 +1,12 @@
+// src/components/Dashboard.tsx
+
 import React, { useState, useMemo } from 'react';
 import { useSupabaseFinance } from '../context/SupabaseFinanceContext';
 import ChartModal from './ui/ChartModal';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Wallet, Percent, Activity, Eye, EyeOff, Info, Package, Maximize, FileDown } from 'lucide-react'; // แก้ไข: เพิ่ม FileDown
+import { TrendingUp, TrendingDown, DollarSign, Wallet, Percent, Activity, Eye, EyeOff, Info, Package, Maximize } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,7 +24,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const Dashboard = () => {
-  const { transactions, loading } = useSupabaseFinance();
+  const { transactions, budgets, loading } = useSupabaseFinance();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [showAmounts, setShowAmounts] = useState(true);
 
@@ -32,20 +34,20 @@ const Dashboard = () => {
   const [modalChartConfig, setModalChartConfig] = useState<ChartConfig>({});
   const [modalChartType, setModalChartType] = useState<'bar' | 'pie' | 'verticalBar' | 'area'>('bar');
   const [modalChartTitle, setModalChartTitle] = useState('');
-  const [modalChartDescription, setModalChartDescription] = '';
+  const [modalChartDescription, setModalChartDescription] = useState('');
   const isMobile = useIsMobile();
-  const [isPDFExportModalOpen, setIsPDFExportModalOpen] = useState(false);
 
-  const formatCurrency = (amount: number, hideAmount = false) => {
-    if (hideAmount) return '฿***,***';
-    return `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
+  // Helper function to format currency consistently
+ const formatCurrency = (amount: number, hideAmount = false) => {
+  if (hideAmount) return '฿***,***';
+  return `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 
   // Memoized list of available years from transactions, plus current and future years
   const years = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const transactionYears = transactions.map(t => new Date(t.date).getFullYear());
-
+    
     const allYearsSet = new Set<number>();
     // Add 5 years before current year
     for (let i = 0; i < 5; i++) {
@@ -57,61 +59,61 @@ const Dashboard = () => {
     }
     // Add all transaction years
     transactionYears.forEach(year => allYearsSet.add(year));
-
+    
     // Convert set to array, sort, and then convert to string for select values
     return Array.from(allYearsSet).sort((a, b) => b - a).map(String);
-  }, [transactions]);
+  }, [transactions]); 
 
   // Filter transactions for the selected year
-  const yearTransactions = useMemo(() => transactions.filter(t =>
-    new Date(t.date).getFullYear().toString() === selectedYear
-  ), [transactions, selectedYear]);
+  const yearTransactions = useMemo(() => transactions.filter(t => 
+    new Date(t.date).getFullYear().toString() === selectedYear 
+  ), [transactions, selectedYear]); 
 
   // Calculate key financial insights for the selected year
   const { totalIncome, totalExpense, netBalance, savingsRate, topExpenseCategory, dailyAvgExpense } = useMemo(() => {
-    const income = yearTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-    const expense = yearTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-    const net = income - expense;
-    const rate = income > 0 ? ((net / income) * 100) : 0;
-    const daysInYear = new Date(parseInt(selectedYear), 1, 29).getDate() === 29 ? 366 : 365;
+    const income = yearTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0); 
+    const expense = yearTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0); 
+    const net = income - expense; 
+    const rate = income > 0 ? ((net / income) * 100) : 0; 
+    const daysInYear = new Date(parseInt(selectedYear), 1, 29).getDate() === 29 ? 366 : 365; 
 
-    const categorySpending = yearTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((acc, t) => {
-        acc[t.category] = (acc[t.category] || 0) + t.amount;
-        return acc;
-      }, {} as Record<string, number>);
+    const categorySpending = yearTransactions 
+      .filter(t => t.type === 'expense') 
+      .reduce((acc, t) => { 
+        acc[t.category] = (acc[t.category] || 0) + t.amount; 
+        return acc; 
+      }, {} as Record<string, number>); 
 
-    const topCat = Object.entries(categorySpending).sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A';
+    const topCat = Object.entries(categorySpending).sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A'; 
 
     return {
-      totalIncome: income,
-      totalExpense: expense,
-      netBalance: net,
-      savingsRate: rate,
-      topExpenseCategory: topCat,
-      dailyAvgExpense: expense / daysInYear,
+      totalIncome: income, 
+      totalExpense: expense, 
+      netBalance: net, 
+      savingsRate: rate, 
+      topExpenseCategory: topCat, 
+      dailyAvgExpense: expense / daysInYear, 
     };
-  }, [yearTransactions, selectedYear]);
+  }, [yearTransactions, selectedYear]); 
 
   // Prepare monthly data for charts (e.g., BarChart of Income vs Expense)
   const monthlyData = useMemo(() => Array.from({ length: 12 }, (_, i) => {
-    const month = i + 1;
-    const monthTransactions = yearTransactions.filter(t =>
-      new Date(t.date).getMonth() + 1 === month
+    const month = i + 1; 
+    const monthTransactions = yearTransactions.filter(t => 
+      new Date(t.date).getMonth() + 1 === month 
     );
-
-    const income = monthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-    const expense = monthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-    const net = income - expense;
+    
+    const income = monthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0); 
+    const expense = monthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0); 
+    const net = income - expense; 
 
     return {
-      month: new Date(parseInt(selectedYear), i).toLocaleDateString('th-TH', { month: 'short' }),
-      income,
-      expense,
-      net
+      month: new Date(parseInt(selectedYear), i).toLocaleDateString('th-TH', { month: 'short' }), 
+      income, 
+      expense, 
+      net 
     };
-  }), [yearTransactions, selectedYear]);
+  }), [yearTransactions, selectedYear]); 
 
   // Prepare data for category breakdown charts (Pie Charts for Expense and Income)
   const categoryBreakdownData = useMemo(() => {
@@ -124,27 +126,27 @@ const Dashboard = () => {
     const expensePieData = Object.entries(expenseByCategory).map(([name, value], index) => ({
       name,
       value,
-      fill: `hsl(${(index * 30 + 10) % 360}, 70%, 50%)`,
+      fill: `hsl(${(index * 30 + 10) % 360}, 70%, 50%)`, 
     })).sort((a,b) => b.value - a.value);
 
     return { expensePieData }; // Only return expensePieData
   }, [yearTransactions]);
 
-  // Chart configuration for consistent styling and labeling
+  // Chart configuration for consistent styling and labeling 
   const chartConfig = useMemo(() => ({
     income: {
       label: "รายรับ",
-      color: "hsl(142.1 76.2% 41%)",
+      color: "hsl(142.1 76.2% 41%)", 
       icon: TrendingUp,
     },
     expense: {
       label: "รายจ่าย",
-      color: "hsl(0 72.2% 50.6%)",
+      color: "hsl(0 72.2% 50.6%)", 
       icon: TrendingDown,
     },
     net: {
       label: "สุทธิ",
-      color: "hsl(221.2 83.2% 53.3%)",
+      color: "hsl(221.2 83.2% 53.3%)", 
       icon: DollarSign,
     },
     ...categoryBreakdownData.expensePieData.reduce((acc, cur) => ({...acc, [cur.name]: {label: cur.name, color: cur.fill}}), {}),
@@ -161,7 +163,7 @@ const Dashboard = () => {
   };
 
   // Render skeleton loaders while data is loading
-  if (loading) {
+  if (loading) { 
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
         <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -199,19 +201,19 @@ const Dashboard = () => {
   }
 
   // Reusable component for displaying financial statistics in a card
-  const StatCard = ({
-    title,
-    value,
-    Icon,
-    color,
+  const StatCard = ({ 
+    title, 
+    value, 
+    Icon, 
+    color, 
     description,
-    className = ""
-  }: {
-    title: string;
-    value: number;
-    Icon: React.ElementType;
-    color: string;
-    description?: string;
+    className = "" 
+  }: { 
+    title: string; 
+    value: number; 
+    Icon: React.ElementType; 
+    color: string; 
+    description?: string; 
     className?: string;
   }) => (
     <motion.div
@@ -259,29 +261,21 @@ const Dashboard = () => {
               </p>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
-              <MonthYearPicker
+              <MonthYearPicker 
                 selectedDate={`${selectedYear}-01`}
                 onDateChange={(date) => setSelectedYear(date.slice(0, 4))}
                 className="min-w-48"
               />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setShowAmounts(!showAmounts)}
-                aria-label={showAmounts ? "ซ่อนจำนวนเงิน" : "แสดงจำนวนเงิน"}
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={() => setShowAmounts(!showAmounts)} 
+                aria-label={showAmounts ? "Hide amounts" : "Show amounts"}
                 className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800"
               >
                 {showAmounts ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
-              {/* ปุ่มโหลด PDF พร้อมข้อความ */}
-              <Button
-                onClick={() => setIsPDFExportModalOpen(true)}
-                variant="outline"
-                className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800"
-              >
-                  <FileDown className="w-4 h-4 mr-2" />
-                  PDF
-              </Button>
+              <PDFExport />
             </div>
           </div>
         </header>
@@ -359,25 +353,25 @@ const Dashboard = () => {
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={monthlyData} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
                           <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
-                          <XAxis
-                            dataKey="month"
-                            tickLine={false}
-                            axisLine={false}
+                          <XAxis 
+                            dataKey="month" 
+                            tickLine={false} 
+                            axisLine={false} 
                             fontSize={12}
                             tick={{ fill: '#64748b' }}
                           />
-                          <YAxis
-                            tickLine={false}
-                            axisLine={false}
+                          <YAxis 
+                            tickLine={false} 
+                            axisLine={false} 
                             fontSize={12}
                             tick={{ fill: '#64748b' }}
-                            tickFormatter={(value) => showAmounts ? `฿${Number(value) / 1000}k` : '฿***'}
+                            tickFormatter={(value) => showAmounts ? `฿${Number(value) / 1000}k` : '฿***'} 
                           />
                           <ChartTooltip
                             cursor={{ fill: 'rgba(0,0,0,0.1)' }}
                             content={<ChartTooltipContent
                               formatter={(value, name) => [
-                                `${formatCurrency(value as number, !showAmounts)}`,
+                                `${formatCurrency(value as number, !showAmounts)}`, 
                                 chartConfig[name as keyof typeof chartConfig]?.label || name
                               ]}
                             />}
@@ -440,11 +434,11 @@ const Dashboard = () => {
                     <ChartContainer config={chartConfig} className="h-full w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
-                          <ChartTooltip
-                            content={<ChartTooltipContent
-                              nameKey="name"
-                              formatter={(value) => formatCurrency(value as number, !showAmounts)}
-                            />}
+                          <ChartTooltip 
+                            content={<ChartTooltipContent 
+                              nameKey="name" 
+                              formatter={(value) => formatCurrency(value as number, !showAmounts)} 
+                            />} 
                           />
                           <Pie
                             data={categoryBreakdownData.expensePieData}
@@ -503,7 +497,7 @@ const Dashboard = () => {
                     คุณใช้จ่ายไป {formatCurrency(
                       yearTransactions
                         .filter(t => t.type === 'expense' && t.category === topExpenseCategory)
-                        .reduce((sum, t) => sum + t.amount, 0),
+                        .reduce((sum, t) => sum + t.amount, 0), 
                       !showAmounts
                     )} ในหมวดหมู่นี้
                   </p>
@@ -583,7 +577,7 @@ const Dashboard = () => {
         </main>
       </div>
 
-      {/* Chart Modal (Dialog for Desktop, Drawer for Mobile) */}
+      {/* Chart Modal (Dialog for Desktop, Drawer for Mobile) - ย้ายมา Render ที่นี่ */}
       <ChartModal
         isOpen={isChartModalOpen}
         onClose={() => setIsChartModalOpen(false)}
@@ -616,11 +610,6 @@ const Dashboard = () => {
           </ResponsiveContainer>
         </ChartContainer>
       </ChartModal>
-      {/* PDF Export Modal */}
-      <PDFExport
-        isOpen={isPDFExportModalOpen}
-        onClose={() => setIsPDFExportModalOpen(false)}
-      />
     </div>
   );
 };

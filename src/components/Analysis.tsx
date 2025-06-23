@@ -2,7 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import ChartModal from './ui/ChartModal';
-import {
+import { useSupabaseFinance } from '../context/SupabaseFinanceContext'; // <-- เพิ่มบรรทัดนี้
+import { 
   Bar, BarChart, Line, LineChart, Pie, PieChart, Area, AreaChart,
   CartesianGrid, XAxis, YAxis, Cell, ResponsiveContainer, Legend
 } from "recharts";
@@ -16,7 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
+import { 
   TrendingUp, TrendingDown, Activity, Calendar as CalendarIcon, Target,
   AlertCircle, CheckCircle, XCircle, ArrowUpRight, ArrowDownRight,
   BarChart3, PieChart as PieChartIcon, LineChart as LineChartIcon,
@@ -25,22 +26,21 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
   DropdownMenuTrigger,
-  DropdownMenuSeparator
+  DropdownMenuSeparator 
 } from '@/components/ui/dropdown-menu';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AnimatePresence, motion } from 'framer-motion';
-import PDFExport from './PDFExport';
-import { format, subMonths } from 'date-fns';
-import { th } from 'date-fns/locale';
+import PDFExport from './PDFExport'; 
+import { format, subMonths } from 'date-fns'; 
+import { th } from 'date-fns/locale'; 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useSupabaseFinance } from '../context/SupabaseFinanceContext'; // ADDED this import
 
 const Analysis = () => {
   const { transactions, budgets, loading } = useSupabaseFinance();
@@ -55,40 +55,39 @@ const Analysis = () => {
   const [modalChartConfig, setModalChartConfig] = useState<ChartConfig>({});
   const [modalChartType, setModalChartType] = useState<'bar' | 'pie' | 'verticalBar' | 'area'>('bar');
   const [modalChartTitle, setModalChartTitle] = useState('');
-  const [modalChartDescription, setModalChartDescription] = '';
-  const [isPDFExportModalOpen, setIsPDFExportModalOpen] = useState(false);
+  const [modalChartDescription, setModalChartDescription] = useState('');
 
-  const formatCurrency = (amount: number, hideAmount = false) => {
-    if (hideAmount) return '฿***,***';
-    return `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
-
+ const formatCurrency = (amount: number, hideAmount = false) => {
+  if (hideAmount) return '฿***,***';
+  return `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+  
   const availableYears = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const years = [];
-    for (let i = -5; i <= 5; i++) {
+    for (let i = -5; i <= 5; i++) { 
       years.push(currentYear + i);
     }
-    return years.sort((a, b) => b - a);
+    return years.sort((a, b) => b - a); 
   }, []);
 
   const availableMonths = useMemo(() => {
     return Array.from({ length: 12 }, (_, i) => ({
       value: (i + 1).toString().padStart(2, '0'),
-      label: format(new Date(2000, i, 1), 'MMMM', { locale: th })
+      label: format(new Date(2000, i, 1), 'MMMM', { locale: th }) 
     }));
   }, []);
 
   const handleMonthYearChange = (type: 'month' | 'year', value: string) => {
-    const currentDateObj = new Date(selectedMonth + '-01');
+    const currentDateObj = new Date(selectedMonth + '-01'); 
     let newDateObj = currentDateObj;
 
     if (type === 'month') {
-      newDateObj.setMonth(parseInt(value, 10) - 1);
-    } else {
+      newDateObj.setMonth(parseInt(value, 10) - 1); 
+    } else { 
       newDateObj.setFullYear(parseInt(value, 10));
     }
-    setSelectedMonth(format(newDateObj, 'yyyy-MM'));
+    setSelectedMonth(format(newDateObj, 'yyyy-MM')); 
   };
 
   const twelveMonthTrend = useMemo(() => {
@@ -115,7 +114,7 @@ const Analysis = () => {
     const income = monthTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const expense = monthTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
     const net = income - expense;
-
+    
     const expenseByCategory = monthTx.filter(t => t.type === 'expense').reduce((acc, t) => {
       acc[t.category] = (acc[t.category] || 0) + t.amount;
       return acc;
@@ -131,7 +130,7 @@ const Analysis = () => {
 
     return { income, expense, net, transactionCount: monthTx.length, categoryChartData };
   }, [transactions, selectedMonth]);
-
+  
   const globalStats = useMemo(() => {
       const totalIncome = twelveMonthTrend.reduce((s, d) => s + d.income, 0);
       const totalExpense = twelveMonthTrend.reduce((s, d) => s + d.expense, 0);
@@ -147,12 +146,12 @@ const Analysis = () => {
       if (globalStats.savingsRate >= 20) score += 40;
       else if (globalStats.savingsRate >= 10) score += 20;
       else if (globalStats.savingsRate > 0) score += 10;
-
+  
       // Max 30 points for expense control
       const netRatio = globalStats.totalIncome > 0 ? globalStats.totalExpense / globalStats.totalIncome : 1;
       if (netRatio < 0.8) score += 30;
       else if (netRatio < 1) score += 15;
-
+  
       // Max 20 points for transaction consistency/activity
       const totalTransactionsInPeriod = transactions.filter(t => {
           const tDate = new Date(t.date);
@@ -162,13 +161,13 @@ const Analysis = () => {
       const consistencyScore = totalTransactionsInPeriod / 5;
       if (consistencyScore > 30) score += 20;
       else if (consistencyScore > 15) score += 10;
-
+  
       // Max 10 points for expense category diversification
       const expenseCatCount = new Set(transactions.filter(t=>t.type === 'expense').map(t=>t.category)).size;
       if(expenseCatCount > 5) score += 10;
 
       score = Math.min(100, score);
-
+  
       const scoreData = {
           score,
           label: score >= 80 ? 'ดีเยี่ยม' : score >= 60 ? 'ดี' : score >= 40 ? 'พอใช้' : 'ต้องปรับปรุง',
@@ -176,7 +175,7 @@ const Analysis = () => {
       };
       return scoreData;
   }, [globalStats, transactions]);
-
+  
   // Generate insights/recommendations based on financial data
   const insights = useMemo(() => {
     const list = [];
@@ -247,20 +246,20 @@ const Analysis = () => {
     </div>
   );
 
-  const StatCard = ({
-    title,
-    value,
-    icon: Icon,
-    trend,
-    color,
+  const StatCard = ({ 
+    title, 
+    value, 
+    icon: Icon, 
+    trend, 
+    color, 
     description,
     className = ""
-  }: {
-    title: string;
-    value: string | number;
-    icon: React.ElementType;
-    trend?: number;
-    color: string;
+  }: { 
+    title: string; 
+    value: string | number; 
+    icon: React.ElementType; 
+    trend?: number; 
+    color: string; 
     description?: string;
     className?: string;
   }) => (
@@ -288,8 +287,8 @@ const Analysis = () => {
           {description && (
             <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
               {trend !== undefined && (
-                trend > 0 ?
-                  <ArrowUpRight className="h-4 w-4 text-green-500" /> :
+                trend > 0 ? 
+                  <ArrowUpRight className="h-4 w-4 text-green-500" /> : 
                   <ArrowDownRight className="h-4 w-4 text-red-500" />
               )}
               {description}
@@ -316,8 +315,8 @@ const Analysis = () => {
             <div className="flex items-center gap-3 flex-wrap">
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
+                  <Button 
+                    variant="outline" 
                     className="min-w-48 justify-between bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
@@ -353,28 +352,20 @@ const Analysis = () => {
                 </PopoverContent>
               </Popover>
 
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setShowAmounts(!showAmounts)}
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={() => setShowAmounts(!showAmounts)} 
                 aria-label={showAmounts ? "ซ่อนจำนวนเงิน" : "แสดงจำนวนเงิน"}
                 className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800"
               >
                 {showAmounts ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
-              {/* ปุ่มโหลด PDF พร้อมข้อความ */}
-              <Button
-                onClick={() => setIsPDFExportModalOpen(true)}
-                variant="outline"
-                className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800"
-              >
-                  <Download className="w-4 h-4 mr-2" />
-                  PDF
-              </Button>
+              <PDFExport />
             </div>
           </div>
         </header>
-
+        
         <main className="grid grid-cols-12 gap-6">
           <section className="col-span-12 lg:col-span-9 space-y-6">
             <Card className="border-0 shadow-lg bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
@@ -391,41 +382,41 @@ const Analysis = () => {
                       เปรียบเทียบหมวดหมู่
                     </TabsTrigger>
                   </TabsList>
-
+                  
                   <div className="p-6">
                     <AnimatePresence mode="wait">
-                      <motion.div
-                        key={activeTab}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
+                      <motion.div 
+                        key={activeTab} 
+                        initial={{ opacity: 0, y: 10 }} 
+                        animate={{ opacity: 1, y: 0 }} 
+                        exit={{ opacity: 0, y: -10 }} 
                         transition={{ duration: 0.2 }}
                       >
                         <TabsContent value="overview" className="mt-0 space-y-6">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <StatCard
-                              title="รายรับเดือนนี้"
-                              value={monthlyAnalysis.income}
-                              icon={TrendingUp}
-                              color="from-green-500 to-emerald-600"
-                              description="จากรายการทั้งหมด"
+                            <StatCard 
+                              title="รายรับเดือนนี้" 
+                              value={monthlyAnalysis.income} 
+                              icon={TrendingUp} 
+                              color="from-green-500 to-emerald-600" 
+                              description="จากรายการทั้งหมด" 
                             />
-                            <StatCard
-                              title="รายจ่ายเดือนนี้"
-                              value={monthlyAnalysis.expense}
-                              icon={TrendingDown}
-                              color="from-red-500 to-rose-600"
-                              description={`${monthlyAnalysis.transactionCount} รายการ`}
+                            <StatCard 
+                              title="รายจ่ายเดือนนี้" 
+                              value={monthlyAnalysis.expense} 
+                              icon={TrendingDown} 
+                              color="from-red-500 to-rose-600" 
+                              description={`${monthlyAnalysis.transactionCount} รายการ`} 
                             />
-                            <StatCard
-                              title="คงเหลือสุทธิ"
-                              value={monthlyAnalysis.net}
-                              icon={Wallet}
-                              color={monthlyAnalysis.net >= 0 ? "from-blue-500 to-cyan-600" : "from-orange-500 to-amber-600"}
-                              description={monthlyAnalysis.net >= 0 ? "เป็นบวก" : "ติดลบ"}
+                            <StatCard 
+                              title="คงเหลือสุทธิ" 
+                              value={monthlyAnalysis.net} 
+                              icon={Wallet} 
+                              color={monthlyAnalysis.net >= 0 ? "from-blue-500 to-cyan-600" : "from-orange-500 to-amber-600"} 
+                              description={monthlyAnalysis.net >= 0 ? "เป็นบวก" : "ติดลบ"} 
                             />
                           </div>
-
+                          
                           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                             {/* Expense Distribution Chart */}
                             <Card className="border-0 shadow-lg bg-slate-50/50 dark:bg-slate-700/50">
@@ -464,20 +455,20 @@ const Analysis = () => {
                                     <ChartContainer config={chartConfig} className="h-full w-full">
                                       <ResponsiveContainer width="100%" height="100%">
                                         <PieChart margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
-                                          <ChartTooltip
-                                            content={<ChartTooltipContent
-                                              nameKey="name"
-                                              formatter={(value) => formatCurrency(value as number, !showAmounts)}
-                                            />}
+                                          <ChartTooltip 
+                                            content={<ChartTooltipContent 
+                                              nameKey="name" 
+                                              formatter={(value) => formatCurrency(value as number, !showAmounts)} 
+                                            />} 
                                           />
-                                          <Pie
-                                            data={monthlyAnalysis.categoryChartData}
-                                            dataKey="value"
-                                            nameKey="name"
-                                            innerRadius={60}
-                                            outerRadius={100}
-                                            paddingAngle={2}
-                                            animationDuration={500}
+                                          <Pie 
+                                            data={monthlyAnalysis.categoryChartData} 
+                                            dataKey="value" 
+                                            nameKey="name" 
+                                            innerRadius={60} 
+                                            outerRadius={100} 
+                                            paddingAngle={2} 
+                                            animationDuration={500} 
                                             stroke="none"
                                           >
                                             {monthlyAnalysis.categoryChartData.map((entry, index) => (
@@ -515,7 +506,7 @@ const Analysis = () => {
                               </CardHeader>
                               <CardContent className="space-y-4">
                                 {monthlyAnalysis.categoryChartData.slice(0, 5).map((cat, index) => (
-                                  <motion.div
+                                  <motion.div 
                                     key={cat.name}
                                     initial={{ opacity: 0, x: -20 }}
                                     animate={{ opacity: 1, x: 0 }}
@@ -526,10 +517,10 @@ const Analysis = () => {
                                       <span>{cat.name}</span>
                                       <span>{formatCurrency(cat.value, !showAmounts)}</span>
                                     </div>
-                                    <Progress
-                                      value={(cat.value / monthlyAnalysis.expense) * 100}
-                                      style={{'--progress-color': cat.fill} as React.CSSProperties}
-                                      className="h-2 [&>div]:bg-[--progress-color]"
+                                    <Progress 
+                                      value={(cat.value / monthlyAnalysis.expense) * 100} 
+                                      style={{'--progress-color': cat.fill} as React.CSSProperties} 
+                                      className="h-2 [&>div]:bg-[--progress-color]" 
                                     />
                                   </motion.div>
                                 ))}
@@ -584,28 +575,28 @@ const Analysis = () => {
                                     <ResponsiveContainer width="100%" height="100%">
                                       <BarChart data={twelveMonthTrend} margin={{ top: 20, right: 20, bottom: 5, left: 0 }}>
                                         <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
-                                        <XAxis
-                                          dataKey="month"
-                                          tickLine={false}
-                                          axisLine={false}
+                                        <XAxis 
+                                          dataKey="month" 
+                                          tickLine={false} 
+                                          axisLine={false} 
                                           fontSize={12}
                                           tick={{ fill: '#64748b' }}
                                         />
-                                        <YAxis
-                                          tickLine={false}
-                                          axisLine={false}
+                                        <YAxis 
+                                          tickLine={false} 
+                                          axisLine={false} 
                                           fontSize={12}
                                           tick={{ fill: '#64748b' }}
-                                          tickFormatter={(v) => showAmounts ? `฿${Number(v)/1000}k` : '฿***'}
+                                          tickFormatter={(v) => showAmounts ? `฿${Number(v)/1000}k` : '฿***'} 
                                         />
-                                        <ChartTooltip
+                                        <ChartTooltip 
                                           cursor={{ fill: 'rgba(0,0,0,0.1)' }}
-                                          content={<ChartTooltipContent
+                                          content={<ChartTooltipContent 
                                             formatter={(value, name) => [
-                                              formatCurrency(value as number, !showAmounts),
+                                              formatCurrency(value as number, !showAmounts), 
                                               chartConfig[name as keyof typeof chartConfig]?.label
                                             ]}
-                                          />}
+                                          />} 
                                         />
                                         <ChartLegend content={<ChartLegendContent />} />
                                         <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
@@ -667,28 +658,28 @@ const Analysis = () => {
                                     <ResponsiveContainer width="100%" height="100%">
                                       <BarChart data={monthlyAnalysis.categoryChartData} layout="vertical" margin={{left: 30}}>
                                         <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#e2e8f0" />
-                                        <XAxis
-                                          type="number"
-                                          hide
+                                        <XAxis 
+                                          type="number" 
+                                          hide 
                                           tick={{ fill: '#64748b' }}
                                         />
-                                        <YAxis
-                                          dataKey="name"
-                                          type="category"
-                                          tickLine={false}
-                                          axisLine={false}
-                                          tickMargin={10}
+                                        <YAxis 
+                                          dataKey="name" 
+                                          type="category" 
+                                          tickLine={false} 
+                                          axisLine={false} 
+                                          tickMargin={10} 
                                           width={120}
                                           tick={{ fill: '#64748b', fontSize: 12 }}
                                         />
-                                        <ChartTooltip
+                                        <ChartTooltip 
                                           cursor={{ fill: 'rgba(0,0,0,0.1)' }}
-                                          content={<ChartTooltipContent
+                                          content={<ChartTooltipContent 
                                             formatter={(value, name) => [
-                                              formatCurrency(value as number, !showAmounts),
+                                              formatCurrency(value as number, !showAmounts), 
                                               chartConfig[name as keyof typeof chartConfig]?.label
-                                            ]}
-                                          />}
+                                            ]} 
+                                          />} 
                                         />
                                         <Bar dataKey="value" layout="vertical" radius={4}>
                                           {monthlyAnalysis.categoryChartData.map((entry, index) => (
@@ -735,23 +726,23 @@ const Analysis = () => {
               <CardContent className="text-center space-y-4">
                 <div className="relative h-32 w-32 mx-auto">
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    <path
-                      className="stroke-current text-slate-200 dark:text-slate-700"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                      fill="none"
+                    <path 
+                      className="stroke-current text-slate-200 dark:text-slate-700" 
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                      fill="none" 
                       strokeWidth="3"
                     />
-                    <path
-                      className={`stroke-current transition-all duration-1000 ${financialHealthScore.color}`}
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                      fill="none"
-                      strokeWidth="3"
+                    <path 
+                      className={`stroke-current transition-all duration-1000 ${financialHealthScore.color}`} 
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                      fill="none" 
+                      strokeWidth="3" 
                       strokeDasharray={`${financialHealthScore.score}, 100`}
                       strokeLinecap="round"
                     />
                   </svg>
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                    <motion.span
+                    <motion.span 
                       className={`text-3xl font-bold ${financialHealthScore.color}`}
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
@@ -803,17 +794,17 @@ const Analysis = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 {insights.map((insight, index) => {
-                  const colors = {
-                    success: "bg-green-50 border-green-200 text-green-800 dark:bg-green-950/50 dark:border-green-800 dark:text-green-200",
-                    warning: "bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-950/50 dark:border-yellow-800 dark:text-yellow-200",
-                    error: "bg-red-50 border-red-200 text-red-800 dark:bg-red-950/50 dark:border-red-800 dark:text-red-200",
+                  const colors = { 
+                    success: "bg-green-50 border-green-200 text-green-800 dark:bg-green-950/50 dark:border-green-800 dark:text-green-200", 
+                    warning: "bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-950/50 dark:border-yellow-800 dark:text-yellow-200", 
+                    error: "bg-red-50 border-red-200 text-red-800 dark:bg-red-950/50 dark:border-red-800 dark:text-red-200", 
                     info: "bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950/50 dark:border-blue-800 dark:text-blue-200"
                   };
                   return (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
+                    <motion.div 
+                      key={index} 
+                      initial={{ opacity: 0, x: -20 }} 
+                      animate={{ opacity: 1, x: 0 }} 
                       transition={{ duration: 0.3, delay: index * 0.1 }}
                     >
                       <Alert className={`flex items-start gap-3 p-4 border ${colors[insight.type]} rounded-lg`}>
@@ -837,51 +828,47 @@ const Analysis = () => {
       </div>
 
       {/* Chart Modal (Dialog for Desktop, Drawer for Mobile) */}
-      <ChartModal
-        isOpen={isChartModalOpen}
-        onClose={() => setIsChartModalOpen(false)}
-        title={modalChartTitle}
-        description={modalChartDescription}
-      >
-        <ChartContainer config={modalChartConfig} className="h-full w-full max-w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            {modalChartType === 'bar' ? (
-              <BarChart data={modalChartData} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={12} />
-                <YAxis tickLine={false} axisLine={false} fontSize={12} tickFormatter={(v) => `฿${Number(v) / 1000}k`} />
-                <ChartTooltip content={<ChartTooltipContent formatter={(value, name) => [formatCurrency(value as number), chartConfig[name as keyof typeof chartConfig]?.label]} />} />
-                <ChartLegend content={<ChartLegendContent />} />
-                <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expense" fill="var(--color-expense)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            ) : modalChartType === 'pie' ? (
-              <PieChart>
-                <ChartTooltip content={<ChartTooltipContent nameKey="name" formatter={(value) => formatCurrency(value as number)} />} />
-                <Pie data={modalChartData} dataKey="value" nameKey="name" innerRadius="30%" outerRadius="80%" paddingAngle={2}>
-                  {modalChartData.map((entry, index) => (<Cell key={`modal-cell-pie-${index}`} fill={entry.fill} />))}
-                </Pie>
-                <ChartLegend content={<ChartLegendContent />} />
-              </PieChart>
-            ) : ( // verticalBar
-              <BarChart data={modalChartData} layout="vertical" margin={{ left: 50, right: 30, top: 20, bottom: 20 }}>
-                <CartesianGrid horizontal={false} strokeDasharray="3 3" />
-                <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={10} width={120} fontSize={12} />
-                <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatCurrency(value as number)} />} />
-                <Bar dataKey="value" layout="vertical" radius={4}>
-                  {modalChartData.map((entry) => (<Cell key={`modal-cell-vbar-${entry.name}`} fill={entry.fill} />))}
-                </Bar>
-              </BarChart>
-            )}
-          </ResponsiveContainer>
-        </ChartContainer>
-      </ChartModal>
-      {/* PDF Export Modal */}
-      <PDFExport
-        isOpen={isPDFExportModalOpen}
-        onClose={() => setIsPDFExportModalOpen(false)}
-      />
+     {/* REFACTORED: Use the new ChartModal component */}
+<ChartModal
+  isOpen={isChartModalOpen}
+  onClose={() => setIsChartModalOpen(false)}
+  title={modalChartTitle}
+  description={modalChartDescription}
+>
+  <ChartContainer config={modalChartConfig} className="h-full w-full max-w-full">
+    <ResponsiveContainer width="100%" height="100%">
+      {modalChartType === 'bar' ? (
+        <BarChart data={modalChartData} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
+          <CartesianGrid vertical={false} strokeDasharray="3 3" />
+          <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={12} />
+          <YAxis tickLine={false} axisLine={false} fontSize={12} tickFormatter={(v) => `฿${Number(v) / 1000}k`} />
+          <ChartTooltip content={<ChartTooltipContent formatter={(value, name) => [formatCurrency(value as number), chartConfig[name as keyof typeof chartConfig]?.label]} />} />
+          <ChartLegend content={<ChartLegendContent />} />
+          <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="expense" fill="var(--color-expense)" radius={[4, 4, 0, 0]} />
+        </BarChart>
+      ) : modalChartType === 'pie' ? (
+        <PieChart>
+          <ChartTooltip content={<ChartTooltipContent nameKey="name" formatter={(value) => formatCurrency(value as number)} />} />
+          <Pie data={modalChartData} dataKey="value" nameKey="name" innerRadius="30%" outerRadius="80%" paddingAngle={2}>
+            {modalChartData.map((entry, index) => (<Cell key={`modal-cell-pie-${index}`} fill={entry.fill} />))}
+          </Pie>
+          <ChartLegend content={<ChartLegendContent />} />
+        </PieChart>
+      ) : ( // verticalBar
+        <BarChart data={modalChartData} layout="vertical" margin={{ left: 50, right: 30, top: 20, bottom: 20 }}>
+          <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+          <XAxis type="number" hide />
+          <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={10} width={120} fontSize={12} />
+          <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatCurrency(value as number)} />} />
+          <Bar dataKey="value" layout="vertical" radius={4}>
+            {modalChartData.map((entry) => (<Cell key={`modal-cell-vbar-${entry.name}`} fill={entry.fill} />))}
+          </Bar>
+        </BarChart>
+      )}
+    </ResponsiveContainer>
+  </ChartContainer>
+</ChartModal>
     </div>
   );
 };
