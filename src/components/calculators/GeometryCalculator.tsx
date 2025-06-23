@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { create, all } from 'mathjs';
 import Latex from 'react-latex-next';
 import 'katex/dist/katex.min.css';
+import { Separator } from '@/components/ui/separator';
 
 // --- MATH.JS CONFIGURATION ---
 const math = create(all, { number: 'BigNumber', precision: 64 });
@@ -35,7 +36,7 @@ const TorusSVG = ({ R, r }: { R?: string, r?: string }) => ( <motion.svg viewBox
 const HemisphereSVG = ({ r }: { r?: string }) => ( <motion.svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-xl" initial={{ opacity: 0}} animate={{ opacity: 1}}><defs><radialGradient id="hemiGrad" cx="40%" cy="40%"><stop offset="0%" className="stop-indigo-200" /><stop offset="100%" className="stop-indigo-500" /></radialGradient></defs><path d="M25,95 A50,40 0 0,1 95,95" fill="url(#hemiGrad)" stroke="#4338ca" strokeWidth="2.5" /><ellipse cx="60" cy="95" rx="35" ry="10" fill="#6366f1" stroke="#4338ca" strokeWidth="2"/><line x1="60" y1="95" x2="95" y2="95" stroke="#4b5563" strokeDasharray="4,3" strokeWidth="1.5"/><text x="75" y="90" className="text-sm fill-slate-800 font-bold">{r ? `r=${r}` : 'r'}</text></motion.svg>);
 const FrustumSVG = ({ r1, r2, h }: { r1?: string, r2?: string, h?: string }) => ( <motion.svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-xl" initial={{ opacity: 0}} animate={{ opacity: 1}}><defs><linearGradient id="frustumGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" className="stop-cyan-200" /><stop offset="100%" className="stop-cyan-500" /></linearGradient></defs><ellipse cx="60" cy="25" rx="20" ry="6" fill="#67e8f9" stroke="#0891b2" strokeWidth="2"/><polygon points="40,25 25,95 95,95 80,25" fill="url(#frustumGrad)" stroke="#0891b2" strokeWidth="2.5" /><ellipse cx="60" cy="95" rx="35" ry="10" fill="#22d3ee" stroke="#0891b2" strokeWidth="2"/><line x1="60" y1="25" x2="60" y2="95" stroke="#4b5563" strokeDasharray="4,3" strokeWidth="1.5"/><text x="65" y="60" className="text-sm fill-slate-700 font-bold">{h ? `h=${h}` : 'h'}</text><line x1="60" y1="25" x2="80" y2="25" stroke="#4b5563" strokeDasharray="4,3" strokeWidth="1.5"/><text x="70" y="22" className="text-sm fill-slate-700 font-bold">{r1 ? `r1=${r1}` : 'r1'}</text><line x1="60" y1="95" x2="95" y2="95" stroke="#4b5563" strokeDasharray="4,3" strokeWidth="1.5"/><text x="75" y="92" className="text-sm fill-slate-700 font-bold">{r2 ? `r2=${r2}` : 'r2'}</text></motion.svg>);
 
-// --- SHAPE CONFIGURATION (with full LaTeX steps) ---
+// --- SHAPE CONFIGURATION ---
 const shapeConfig: { [key in Shape]: { name: string; icon: React.ElementType; inputs: InputField[]; svg: React.FC<any>; calculate: (values: any) => any; } } = {
     cone: {
         name: 'กรวย', icon: Zap,
@@ -281,11 +282,12 @@ $$l = \\sqrt{(${rLarge}-${rSmall})^2 + ${H}^2} \\approx ${slantHeight.toFixed(4)
     },
 };
 
-// --- RESULTS MODAL COMPONENT (FIXED FOR OVERFLOW - FINAL) ---
+// --- RESULTS MODAL COMPONENT ---
 const ResultsModal = ({ isOpen, onClose, shape, values, results }) => {
     if (!isOpen) return null;
 
     const CurrentShapeSVG = shapeConfig[shape].svg;
+    const f = (num) => math.format(num, { notation: 'fixed', precision: 4 });
 
     const shareCalculation = () => {
         const params = new URLSearchParams();
@@ -320,62 +322,62 @@ const ResultsModal = ({ isOpen, onClose, shape, values, results }) => {
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm">
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
                         transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-                        // Set the boundary here
                         className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 dark:border-slate-700 flex flex-col max-h-[90vh]"
                     >
-                        <Tabs defaultValue="results" className="w-full">
-                            {/* The header is fixed */}
-                            <CardHeader className="flex-shrink-0 flex flex-row items-center justify-between p-4 border-b dark:border-slate-700">
-                                <div className='flex items-center gap-4'>
-                                    <div className="bg-gradient-to-br from-indigo-500 to-blue-600 p-2 rounded-lg shadow-md">
-                                        <CheckCircle className="h-6 w-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <CardTitle className="text-xl text-slate-800 dark:text-white">ผลการคำนวณ: {shapeConfig[shape]?.name}</CardTitle>
-                                        <CardDescription className="text-xs">ค่าที่ใช้: {valuesDisplayText}</CardDescription>
-                                    </div>
-                                </div>
-                                <TabsList>
-                                    <TabsTrigger value="results">ผลลัพธ์</TabsTrigger>
-                                    <TabsTrigger value="steps">ขั้นตอน</TabsTrigger>
-                                </TabsList>
-                            </CardHeader>
-                            
-
-                            <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 140px)' }}>
-                                <TabsContent value="results">
-                                    <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                                        <div className="bg-slate-100 dark:bg-slate-800/50 p-4 rounded-xl h-64 flex items-center justify-center">
-                                            <CurrentShapeSVG {...values} />
+                        <Tabs defaultValue="results" className="w-full flex flex-col min-h-0">
+                            <div className="flex-shrink-0 border-b dark:border-slate-700">
+                                <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 gap-4">
+                                    <div className='flex items-center gap-4'>
+                                        <div className="bg-gradient-to-br from-indigo-500 to-blue-600 p-2 rounded-lg shadow-md">
+                                            <CheckCircle className="h-6 w-6 text-white" />
                                         </div>
-                                        <div className="space-y-4">
-                                            <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
+                                        <div>
+                                            <CardTitle className="text-lg sm:text-xl text-slate-800 dark:text-white">ผลการคำนวณ: {shapeConfig[shape]?.name}</CardTitle>
+                                            <CardDescription className="text-xs mt-1">ค่าที่ใช้: {valuesDisplayText}</CardDescription>
+                                        </div>
+                                    </div>
+                                    <TabsList className="w-full sm:w-auto">
+                                        <TabsTrigger value="results" className="w-1/2 sm:w-auto">ผลลัพธ์</TabsTrigger>
+                                        <TabsTrigger value="steps" className="w-1/2 sm:w-auto">ขั้นตอน</TabsTrigger>
+                                    </TabsList>
+                                </CardHeader>
+                            </div>
+                            
+                            <div className="flex-grow overflow-y-auto">
+                                <TabsContent value="results" className="p-4 md:p-6">
+                                    <div className="flex flex-col lg:flex-row gap-6">
+                                        <div className="lg:w-1/3 flex-shrink-0">
+                                             <div className="bg-slate-100 dark:bg-slate-800/50 p-4 rounded-xl h-48 lg:h-full flex items-center justify-center">
+                                                <CurrentShapeSVG {...values} />
+                                            </div>
+                                        </div>
+                                        <div className="lg:w-2/3 space-y-3 border dark:border-slate-800 rounded-lg p-4">
+                                            <div>
                                                 <Label className="text-xs text-blue-700 dark:text-blue-300">ปริมาตร (Volume)</Label>
-                                                <p className="text-2xl font-bold text-blue-900 dark:text-white">{math.format(results.volume, {notation: 'fixed', precision: 4})} <span className="text-sm font-normal">หน่วย³</span></p>
+                                                <p className="text-xl sm:text-2xl font-bold text-blue-900 dark:text-white">{f(results.volume)} <span className="text-sm font-normal">หน่วย³</span></p>
                                             </div>
-                                            <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800">
+                                            <Separator/>
+                                            <div>
                                                 <Label className="text-xs text-green-700 dark:text-green-300">พื้นที่ผิวข้าง (Lateral Surface Area)</Label>
-                                                <p className="text-2xl font-bold text-green-900 dark:text-white">{math.format(results.lateralSurfaceArea, {notation: 'fixed', precision: 4})} <span className="text-sm font-normal">หน่วย²</span></p>
+                                                <p className="text-xl sm:text-2xl font-bold text-green-900 dark:text-white">{f(results.lateralSurfaceArea)} <span className="text-sm font-normal">หน่วย²</span></p>
                                             </div>
-                                            <div className="p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800">
+                                            <Separator/>
+                                            <div>
                                                 <Label className="text-xs text-purple-700 dark:text-purple-300">พื้นที่ผิวทั้งหมด (Total Surface Area)</Label>
-                                                <p className="text-2xl font-bold text-purple-900 dark:text-white">{math.format(results.totalSurfaceArea, {notation: 'fixed', precision: 4})} <span className="text-sm font-normal">หน่วย²</span></p>
+                                                <p className="text-xl sm:text-2xl font-bold text-purple-900 dark:text-white">{f(results.totalSurfaceArea)} <span className="text-sm font-normal">หน่วย²</span></p>
                                             </div>
                                         </div>
                                     </div>
                                 </TabsContent>
                                 <TabsContent value="steps">
-                                    <div className="p-6 prose prose-sm dark:prose-invert max-w-none prose-h4:font-semibold prose-h4:mb-2 prose-h4:mt-4 prose-strong:text-blue-600 dark:prose-strong:text-blue-400">
-                                        <Latex delimiters={[
-                                            { left: '$$', right: '$$', display: true },
-                                            { left: '$', right: '$', display: false },
-                                        ]}>
+                                    <div className="p-4 md:p-6 prose prose-sm dark:prose-invert max-w-none prose-h4:font-semibold prose-h4:mb-2 prose-h4:mt-4 prose-strong:text-blue-600 dark:prose-strong:text-blue-400 overflow-x-auto">
+                                        <Latex delimiters={[{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }]}>
                                             {processedSteps}
                                         </Latex>
                                     </div>
@@ -383,7 +385,6 @@ const ResultsModal = ({ isOpen, onClose, shape, values, results }) => {
                             </div>
                         </Tabs>
 
-                        {/* The footer is fixed */}
                         <div className="flex-shrink-0 flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800/50 border-t dark:border-slate-700 rounded-b-2xl">
                             <Button variant="ghost" onClick={shareCalculation}><Share2 className="mr-2 h-4 w-4" /> แชร์ผลลัพธ์</Button>
                             <Button onClick={onClose}>ปิด</Button>
@@ -394,7 +395,6 @@ const ResultsModal = ({ isOpen, onClose, shape, values, results }) => {
         </AnimatePresence>
     );
 };
-
 
 // --- MAIN APPLICATION COMPONENT ---
 export default function VolumeCalculator() {
@@ -417,7 +417,7 @@ export default function VolumeCalculator() {
     }, []);
 
     const results = useMemo(() => {
-        return shapeConfig[selectedShape].calculate(inputValues);
+        return shapeConfig[selectedShape].calculate(inputValues) || { volume: 0, lateralSurfaceArea: 0, totalSurfaceArea: 0, steps: "" };
     }, [selectedShape, inputValues]);
     
     const isInputValid = useMemo(() => {
@@ -442,22 +442,32 @@ export default function VolumeCalculator() {
                             </div>
                         </div>
                     </CardHeader>
-                    <CardContent className="p-6 sm:p-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="flex flex-col space-y-6">
-                                <div>
-                                    <Label className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-2 block">1. เลือกรูปทรง</Label>
-                                    <Select onValueChange={(v) => { setSelectedShape(v as Shape); setInputValues({}); }} value={selectedShape}>
-                                        <SelectTrigger className="w-full text-base py-6 rounded-xl"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            {Object.entries(shapeConfig).map(([key, { name, icon: Icon }]) => (
-                                                <SelectItem key={key} value={key} className="text-base py-2"><div className="flex items-center"><Icon className="h-5 w-5 mr-3 text-slate-500" />{name}</div></SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                    <CardContent className="p-4 sm:p-6 lg:p-8">
+                        <div className="flex flex-col gap-6">
+                            <div>
+                                <Label className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-2 block">1. เลือกรูปทรง</Label>
+                                <Select onValueChange={(v) => { setSelectedShape(v as Shape); setInputValues({}); }} value={selectedShape}>
+                                    <SelectTrigger className="w-full text-base py-6 rounded-xl"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {Object.entries(shapeConfig).map(([key, { name, icon: Icon }]) => (
+                                            <SelectItem key={key} value={key} className="text-base py-2"><div className="flex items-center"><Icon className="h-5 w-5 mr-3 text-slate-500" />{name}</div></SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-center">
+                                <div className="bg-gradient-to-br from-slate-100 to-gray-200 dark:from-slate-800 dark:to-slate-900/50 p-4 rounded-2xl h-52 flex items-center justify-center border shadow-inner order-last lg:order-first">
+                                    {shapeConfig[selectedShape].svg(inputValues)}
                                 </div>
                                 <div>
-                                    <Label className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-2 block">2. ป้อนค่า</Label>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <Label className="text-base font-semibold text-slate-700 dark:text-slate-300">2. ป้อนค่า</Label>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild><Button variant="ghost" size="sm" onClick={() => setInputValues({})}><Trash2 className="h-4 w-4 mr-1.5" />ล้างค่า</Button></TooltipTrigger>
+                                            <TooltipContent><p>ล้างข้อมูลที่ป้อนทั้งหมด</p></TooltipContent>
+                                        </Tooltip>
+                                    </div>
                                     <div className="space-y-4 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border">
                                         {shapeConfig[selectedShape].inputs.map((inputField) => (
                                             <div key={inputField.key} className="grid grid-cols-3 items-center gap-4">
@@ -466,13 +476,10 @@ export default function VolumeCalculator() {
                                             </div>
                                         ))}
                                     </div>
-                                    <div className="flex justify-end mt-2"><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" onClick={() => setInputValues({})}><Trash2 className="h-4 w-4 mr-1.5" />ล้างค่า</Button></TooltipTrigger><TooltipContent><p>ล้างข้อมูลที่ป้อนทั้งหมด</p></TooltipContent></Tooltip></div>
                                 </div>
                             </div>
-                            <div className="flex flex-col space-y-6 justify-between">
-                                <div className="bg-gradient-to-br from-slate-100 to-gray-200 dark:from-slate-800 dark:to-slate-900/50 p-4 rounded-2xl h-60 flex items-center justify-center border shadow-inner">
-                                    {shapeConfig[selectedShape].svg(inputValues)}
-                                </div>
+                            
+                            <div className="pt-4">
                                 <Button size="lg" className="w-full py-7 text-lg rounded-xl" onClick={() => setResultsModalOpen(true)} disabled={!isInputValid}>
                                     <CheckCircle className="mr-2 h-5 w-5" /> คำนวณและดูผลลัพธ์
                                 </Button>
@@ -481,13 +488,7 @@ export default function VolumeCalculator() {
                     </CardContent>
                 </Card>
 
-                <ResultsModal
-                    isOpen={isResultsModalOpen}
-                    onClose={() => setResultsModalOpen(false)}
-                    shape={selectedShape}
-                    values={inputValues}
-                    results={results}
-                />
+                <ResultsModal isOpen={isResultsModalOpen} onClose={() => setResultsModalOpen(false)} shape={selectedShape} values={inputValues} results={results} />
             </div>
         </TooltipProvider>
     );
